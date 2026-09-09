@@ -49,19 +49,26 @@ enum xnd_log_level {
 #define CLR_YLW "\033[0;33m"
 #define CLR_RST "\033[0m"
 
-#define xnd_printf(fmt, ...) \
-	printf("[xnd] " fmt, ##__VA_ARGS__)
+#define XND_SIMPLE_FMT "[xnd] "
+#define XND_VERBOSE_FMT "[xnd:%s:%s:%d] "
 
-#define xnd_perror(s) \
-	fprintf(stderr, CLR_RED "[xnd:%s:%s:%d] " s ": %s\n" CLR_RST, \
+#define xnd_printf(fmt, ...) \
+	printf(XND_SIMPLE_FMT fmt, ##__VA_ARGS__)
+
+#define xnd_strerror(str, error) \
+	fprintf(stderr, CLR_RED XND_VERBOSE_FMT str ": %s\n" CLR_RST, \
+		__XND_FILE__, __func__, __LINE__, strerror(error))
+
+#define xnd_perror(str) \
+	fprintf(stderr, CLR_RED XND_VERBOSE_FMT str ": %s\n" CLR_RST, \
 		__XND_FILE__, __func__, __LINE__, strerror(errno))
 
 #define xnd_error(fmt, ...) \
-	fprintf(stderr, CLR_RED "[xnd:%s:%s:%d] " fmt CLR_RST, \
+	fprintf(stderr, CLR_RED XND_VERBOSE_FMT fmt CLR_RST, \
 		__XND_FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
 #define xnd_warn(fmt, ...) \
-	fprintf(stderr, CLR_YLW "[xnd:%s:%s:%d] " fmt CLR_RST, \
+	fprintf(stderr, CLR_YLW XND_VERBOSE_FMT fmt CLR_RST, \
 		__XND_FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
 /*

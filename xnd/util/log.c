@@ -115,7 +115,7 @@ void xnd_log_ckpt_thread_info(struct thread_info *ckpt_thread)
 	const uint kport_slot = __TSD_MACH_THREAD_SELF;
 
 	self = (uintptr_t)ckpt_thread->ti_self;
-	tls = self + PTHREAD_TLS_OFFSET;
+	tls = pthread_tsd_base((pthread_t)self);
 	kport = (mach_port_t)(uintptr_t)((void **)tls)[kport_slot];
 
 	xnd_trace("checkpoint thread info:\n"
@@ -130,9 +130,9 @@ void xnd_log_main_thread_info(void)
 	uintptr_t tls, thread_self, sig, munge;
 
 	asm volatile("mrs %0, tpidrro_el0" : "=r" (tls) :: "memory");
-	thread_self = get_tls_slot(__TSD_THREAD_SELF);
+	thread_self = *tsd_slot_access(uintptr_t, __TSD_THREAD_SELF);
 	sig = *(long *)thread_self;
-	munge = get_tls_slot(__TSD_PTR_MUNGE);
+	munge = *tsd_slot_access(uintptr_t, __TSD_PTR_MUNGE);
 
 	xnd_trace("main thread info:\n"
 		  "      tpidrro_el0: 0x%016lx (tsd base)\n"
