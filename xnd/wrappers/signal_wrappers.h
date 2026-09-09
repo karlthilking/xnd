@@ -10,10 +10,6 @@
 
 typedef void (*sig_t)(int);
 
-#define SA_TABLE_LEN (NSIG - 3)
-#define SA_TABLE_IDX(sig) \
-	((sig) < 9 ? (sig) - 1 : (sig) < 17 ? (sig) - 2 : (sig) - 3)
-
 void sig_state_save(void);
 void sig_state_restore(void);
 
