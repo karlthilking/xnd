@@ -6,30 +6,28 @@
 #include <pthread.h>
 
 #define TOSTRING_X(s) #s
-#define TOSTRING(s) TOSTRING_X (s)
+#define TOSTRING(s)   TOSTRING_X (s)
 
-#define __xpthread_op(op, ...)						\
-  do									\
-    {									\
-      int __e = op (__VA_ARGS__);					\
-      if (__builtin_expect (__e, 0))					\
-	{								\
-	  fprintf (stderr, "%s: %s\n", TOSTRING (op), strerror (__e));	\
-	  exit (-1);							\
-	}								\
-    }									\
+#define __xpthread_op(op, ...)                                         \
+  do                                                                   \
+    {                                                                  \
+      int __e = op (__VA_ARGS__);                                      \
+      if (__builtin_expect (__e, 0))                                   \
+        {                                                              \
+          fprintf (stderr, "%s: %s\n", TOSTRING (op), strerror (__e)); \
+          exit (-1);                                                   \
+        }                                                              \
+    }                                                                  \
   while (0)
 
 #define xpthread_create(thread, attr, start_routine, arg) \
   __xpthread_op (pthread_create, thread, attr, start_routine, arg)
 #define xpthread_join(thread, value_ptr) \
   __xpthread_op (pthread_join, thread, value_ptr)
-#define xpthread_exit(value_ptr) \
-  pthread_exit (value_ptr)
+#define xpthread_exit(value_ptr) pthread_exit (value_ptr)
 #define xpthread_mutex_init(mutex, attr) \
   __xpthread_op (pthread_mutex_init, mutex, attr)
-#define xpthread_mutex_lock(mutex) \
-  __xpthread_op (pthread_mutex_lock, mutex)
+#define xpthread_mutex_lock(mutex) __xpthread_op (pthread_mutex_lock, mutex)
 #define xpthread_mutex_unlock(mutex) \
   __xpthread_op (pthread_mutex_unlock, mutex)
 #define xpthread_mutex_destroy(mutex) \
@@ -40,24 +38,23 @@
   __xpthread_op (pthread_cond_wait, cond, mutex)
 #define xpthread_cond_broadcast(cond) \
   __xpthread_op (pthread_cond_broadcast, cond)
-#define xpthread_cond_destroy(cond) \
-  __xpthread_op (pthread_cond_destroy, cond)
+#define xpthread_cond_destroy(cond) __xpthread_op (pthread_cond_destroy, cond)
 
-#define __xalloc(op, ...)				\
-  ({							\
-    void *__p = op (__VA_ARGS__);			\
-    if (__builtin_expect (!__p, 0))			\
-      {							\
-	fprintf (stderr, "%s failed\n", TOSTRING (op)); \
-	exit (-1);					\
-      }							\
-    __p;						\
+#define __xalloc(op, ...)                               \
+  ({                                                    \
+    void *__p = op (__VA_ARGS__);                       \
+    if (__builtin_expect (!__p, 0))                     \
+      {                                                 \
+        fprintf (stderr, "%s failed\n", TOSTRING (op)); \
+        exit (-1);                                      \
+      }                                                 \
+    __p;                                                \
   })
 
-#define xmalloc(size) __xalloc (malloc, size)
+#define xmalloc(size)        __xalloc (malloc, size)
 #define xcalloc(nmemb, size) __xalloc (calloc, nmemb, size)
-#define xrealloc(ptr, size) __xalloc (realloc, ptr, size)
-#define xfree(ptr) free (ptr)
+#define xrealloc(ptr, size)  __xalloc (realloc, ptr, size)
+#define xfree(ptr)           free (ptr)
 
 static int N = 2048;
 static int iters = 10000;
@@ -76,15 +73,14 @@ struct barrier
 static void
 usage_and_exit (void)
 {
-  static const char *help =
-    "Usage: ./04_jacobi [options]\n"
-    "Options:\n"
-    " -t NUMBER\n"
-    "   Number of worker threads\n"
-    " -i NUMBER\n"
-    "   Number of iterations\n"
-    " -n NUMBER\n"
-    "   Grid x and y dimension\n";
+  static const char *help = "Usage: ./04_jacobi [options]\n"
+                            "Options:\n"
+                            " -t NUMBER\n"
+                            "   Number of worker threads\n"
+                            " -i NUMBER\n"
+                            "   Number of iterations\n"
+                            " -n NUMBER\n"
+                            "   Grid x and y dimension\n";
 
   printf ("%s", help);
   exit (0);
@@ -118,7 +114,7 @@ barrier_wait (struct barrier *b)
   else
     {
       while (gen == b->generation)
-	xpthread_cond_wait (&b->cond, &b->lock);
+        xpthread_cond_wait (&b->cond, &b->lock);
     }
 
   xpthread_mutex_unlock (&b->lock);
@@ -142,13 +138,13 @@ static pthread_mutex_t diff_lock = PTHREAD_MUTEX_INITIALIZER;
 static void
 grid_init (void)
 {
-  grid[0] = xmalloc (N * sizeof(double *));
-  grid[1] = xmalloc (N * sizeof(double *));
+  grid[0] = xmalloc (N * sizeof (double *));
+  grid[1] = xmalloc (N * sizeof (double *));
 
   for (int i = 0; i < N; i++)
     {
-      grid[0][i] = xcalloc (N, sizeof(double));
-      grid[1][i] = xcalloc (N, sizeof(double));
+      grid[0][i] = xcalloc (N, sizeof (double));
+      grid[1][i] = xcalloc (N, sizeof (double));
     }
 }
 
@@ -203,22 +199,21 @@ worker (void *arg)
       int next = 1 - cur;
       double local_diff = 0.0;
       for (int i = w->row_start; i < w->row_end; i++)
-	{
-	  for (int j = 1; j < N - 1; j++)
-	    {
-	      double val = 0.25 * (grid[cur][i - 1][j]
-				   + grid[cur][i + 1][j]
-				   + grid[cur][i][j - 1]
-				   + grid[cur][i][j + 1]);
-	      grid[next][i][j] = val;
-	      double d = val - grid[cur][i][j];
-	      local_diff += d * d;
-	    }
-	}
+        {
+          for (int j = 1; j < N - 1; j++)
+            {
+              double val = 0.25
+                           * (grid[cur][i - 1][j] + grid[cur][i + 1][j]
+                              + grid[cur][i][j - 1] + grid[cur][i][j + 1]);
+              grid[next][i][j] = val;
+              double d = val - grid[cur][i][j];
+              local_diff += d * d;
+            }
+        }
 
       barrier_wait (&barrier);
       if (w->tid == 0)
-	global_diff = 0.0;
+        global_diff = 0.0;
 
       barrier_wait (&barrier);
       xpthread_mutex_lock (&diff_lock);
@@ -227,18 +222,18 @@ worker (void *arg)
 
       barrier_wait (&barrier);
       if (w->tid == 0)
-	{
-	  iteration++;
-	  cur = next;
-	  if (iteration % conv_check == 0)
-	    {
-	      double rmsd = sqrt (global_diff / ((N - 2) * (N - 2)));
-	      printf ("iter %5d | rmsd = %.6e\n", iteration, rmsd);
-	      fflush (stdout);
-	      if (rmsd < 1e-6 || iteration >= iters)
-		done = 1;
-	    }
-	}
+        {
+          iteration++;
+          cur = next;
+          if (iteration % conv_check == 0)
+            {
+              double rmsd = sqrt (global_diff / ((N - 2) * (N - 2)));
+              printf ("iter %5d | rmsd = %.6e\n", iteration, rmsd);
+              fflush (stdout);
+              if (rmsd < 1e-6 || iteration >= iters)
+                done = 1;
+            }
+        }
 
       barrier_wait (&barrier);
     }
@@ -253,34 +248,39 @@ main (int argc, char *argv[])
   pthread_t *threads = NULL;
   struct worker_args *args = NULL;
 
-#define shift argv++; argc--
+#define shift \
+  argv++;     \
+  argc--
   shift;
   while (argc)
     {
       if (strncmp (argv[0], "-t", 2) == 0)
-	{
-	  nthreads = atoi (argv[1]);
-	  shift; shift;
-	}
+        {
+          nthreads = atoi (argv[1]);
+          shift;
+          shift;
+        }
       else if (strncmp (argv[0], "-i", 2) == 0)
-	{
-	  iters = atoi (argv[1]);
-	  shift; shift;
-	}
+        {
+          iters = atoi (argv[1]);
+          shift;
+          shift;
+        }
       else if (strncmp (argv[0], "-g", 2) == 0)
-	{
-	  N = atoi (argv[1]);
-	  shift; shift;
-	}
+        {
+          N = atoi (argv[1]);
+          shift;
+          shift;
+        }
       else
-	{
-	  fprintf (stderr, "Unrecognized argument: %s\n", argv[0]);
-	  usage_and_exit ();
-	}
+        {
+          fprintf (stderr, "Unrecognized argument: %s\n", argv[0]);
+          usage_and_exit ();
+        }
     }
 
-  args = xmalloc (sizeof(*args) * nthreads);
-  threads = xmalloc (sizeof(pthread_t) * nthreads);
+  args = xmalloc (sizeof (*args) * nthreads);
+  threads = xmalloc (sizeof (pthread_t) * nthreads);
 
   grid_init ();
   boundary_init ();
@@ -291,9 +291,7 @@ main (int argc, char *argv[])
     {
       args[t].tid = t;
       args[t].row_start = 1 + t * rows_per;
-      args[t].row_end = (t == nthreads - 1
-			 ? N - 1
-			 : 1 + (t + 1) * rows_per);
+      args[t].row_end = (t == nthreads - 1 ? N - 1 : 1 + (t + 1) * rows_per);
 
       xpthread_create (&threads[t], NULL, worker, &args[t]);
     }
@@ -301,8 +299,8 @@ main (int argc, char *argv[])
   for (int t = 0; t < nthreads; t++)
     xpthread_join (threads[t], NULL);
 
-  printf ("done: iter=%d, center=%.6f\n",
-	  iteration, grid[cur][N >> 1][N >> 1]);
+  printf ("done: iter=%d, center=%.6f\n", iteration,
+          grid[cur][N >> 1][N >> 1]);
 
   barrier_destroy (&barrier);
   grid_destroy ();

@@ -4,24 +4,28 @@
 #include <fcntl.h>
 #include <errno.h>
 
-bool xnd_fd_available(int fd)
+bool
+xnd_fd_available (int fd)
 {
-        int err;
+  int err;
 
-        err = fcntl(fd, F_GETFL, 0);
-        if (err == -1 && errno == EBADF) {
-                return true;
-        }
+  err = fcntl (fd, F_GETFL, 0);
+  if (err == -1 && errno == EBADF)
+    {
+      return true;
+    }
 
-        return false;
+  return false;
 }
 
-int xnd_fd_change(int old, int desired)
+int
+xnd_fd_change (int old, int desired)
 {
-        if (old != desired) {
-                xnd_assert(dup2(old, desired) == desired);
-                close(old);
-        }
+  if (old != desired)
+    {
+      xnd_assert (dup2 (old, desired) == desired);
+      close (old);
+    }
 
-        return desired;
+  return desired;
 }

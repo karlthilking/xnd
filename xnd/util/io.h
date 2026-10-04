@@ -5,11 +5,12 @@
 #include "xnd/xnd.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif /* __cplusplus */
 
-ssize_t writeall(int, const void *, size_t);
-ssize_t readall(int, void *, size_t);
+  ssize_t writeall (int, const void *, size_t);
+  ssize_t readall (int, void *, size_t);
 
 #ifdef __cplusplus
 }

@@ -7,15 +7,16 @@
 #include <sys/types.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif /* __cplusplus */
 
-void pid_table_init_pid_info(void);
-void pid_table_postrestart(void);
-void pid_table_atfork_prepare(void);
-void pid_table_atfork_child(void);
-void pid_table_atfork_parent(void);
-void pid_table_atfork_failed(void);
+  void pid_table_init_pid_info (void);
+  void pid_table_postrestart (void);
+  void pid_table_atfork_prepare (void);
+  void pid_table_atfork_child (void);
+  void pid_table_atfork_parent (void);
+  void pid_table_atfork_failed (void);
 
 #ifdef __cplusplus
 }

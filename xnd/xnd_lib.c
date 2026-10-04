@@ -96,7 +96,7 @@ xnd_postrestart_early (void)
     {
       dirfd = xnd_ckptdir_open (xnd_uuid, epoch);
       if (dirfd != -1)
-	xnd_ckptfile_unlinkat (dirfd, xnd_pid);
+        xnd_ckptfile_unlinkat (dirfd, xnd_pid);
     }
 
 #if DEBUG || DEVELOPMENT
@@ -137,16 +137,19 @@ xnd_checkpoint (ucontext_t *uctx)
   header.xnd_ppid = xnd_ppid;
   header.xnd_pgid = xnd_pgid;
   header.num_peers = num_peers;
-  header.is_root_of_tree = (u32) is_root_of_tree;
+  header.is_root_of_tree = (u32)is_root_of_tree;
 
   nregions = ckpt_vm_save_regions (regions);
-  if (nregions > XND_CKPT_VM_REGION_MAX) {
-    xnd_error ("max memory regions exceeded: %u\n", nregions);
-    return;
-  } else if (nregions == 0) {
-    xnd_error ("ckpt_vm_save_regions saved 0 regions\n");
-    return;
-  }
+  if (nregions > XND_CKPT_VM_REGION_MAX)
+    {
+      xnd_error ("max memory regions exceeded: %u\n", nregions);
+      return;
+    }
+  else if (nregions == 0)
+    {
+      xnd_error ("ckpt_vm_save_regions saved 0 regions\n");
+      return;
+    }
 
   idx = 0;
   while (idx < nregions)
@@ -225,8 +228,8 @@ xnd_register_fork_handlers (void)
   if (xnd_atfork_registered)
     return;
 
-  err = pthread_atfork (xnd_atfork_prepare, xnd_atfork_parent,
-			xnd_atfork_child);
+  err =
+      pthread_atfork (xnd_atfork_prepare, xnd_atfork_parent, xnd_atfork_child);
   if (err != 0)
     {
       xnd_strerror ("pthread_atfork", err);
@@ -245,7 +248,7 @@ xnd_setup (void)
 
   connect_to_coord_on_launch ();
 
-  if (do_tsd_runtime_checks() != true)
+  if (do_tsd_runtime_checks () != true)
     {
       xnd_error ("tsd runtime checks failed\n");
       xnd_abort ();

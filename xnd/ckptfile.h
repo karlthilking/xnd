@@ -8,97 +8,101 @@
 #include <sys/types.h>
 #include <uuid/uuid.h>
 
-#define XND_HEADER_MAGIC        "xnd_ckptfile_v0"
+#define XND_HEADER_MAGIC "xnd_ckptfile_v0"
 
-#define XND_CKPTPATH_FMT        "%s-checkpoints/epoch-%llu/ckpt-%u.xnd"
-#define XND_CKPTPATH_MAXLEN     (XND_CKPTDIR_MAXLEN + XND_CKPTFILE_MAXLEN)
+#define XND_CKPTPATH_FMT    "%s-checkpoints/epoch-%llu/ckpt-%u.xnd"
+#define XND_CKPTPATH_MAXLEN (XND_CKPTDIR_MAXLEN + XND_CKPTFILE_MAXLEN)
 
 #define XND_CKPTFILE_FMT        "ckpt-%u.xnd"
 #define XND_COMPRESSED_CKPT_FMT "ckpt-%u.xnd.gz"
 
-#define XND_CKPTFILE_MAXLEN     (sizeof("ckpt-") + 10 + \
-                                 sizeof(XND_CKPTFILE_SUFFIX) + \
-                                 sizeof(XND_COMPRESSED_SUFFIX) + 1)
-#define XND_CKPTFILE_SUFFIX     ".xnd"
-#define XND_COMPRESSED_SUFFIX   ".gz"
+#define XND_CKPTFILE_MAXLEN                             \
+  (sizeof ("ckpt-") + 10 + sizeof (XND_CKPTFILE_SUFFIX) \
+   + sizeof (XND_COMPRESSED_SUFFIX) + 1)
+#define XND_CKPTFILE_SUFFIX   ".xnd"
+#define XND_COMPRESSED_SUFFIX ".gz"
 
-#define XND_CKPTDIR_MAXLEN      (XND_CKPTDIR_BASELEN + XND_CKPTDIR_SUBLEN)
-#define XND_CKPTDIR_BASELEN     (36 + sizeof("-checkpoints") + 1)
-#define XND_CKPTDIR_SUBLEN      (sizeof("epoch-") + 21)
+#define XND_CKPTDIR_MAXLEN  (XND_CKPTDIR_BASELEN + XND_CKPTDIR_SUBLEN)
+#define XND_CKPTDIR_BASELEN (36 + sizeof ("-checkpoints") + 1)
+#define XND_CKPTDIR_SUBLEN  (sizeof ("epoch-") + 21)
 
-#define XND_MANIFEST_MAXLEN     (XND_CKPTDIR_MAXLEN + \
-                                 sizeof(XND_MANIFEST_NAME))
+#define XND_MANIFEST_MAXLEN (XND_CKPTDIR_MAXLEN + sizeof (XND_MANIFEST_NAME))
 
-#define XND_MANIFEST_NAME       "ckpt-manifest.xnd"
-#define XND_MANIFEST_ENTRY_MAX  256
+#define XND_MANIFEST_NAME      "ckpt-manifest.xnd"
+#define XND_MANIFEST_ENTRY_MAX 256
 
-#define XND_CKPT_ENTRY_MAX      1024
-#define XND_CKPT_VM_REGION_MAX  1023
+#define XND_CKPT_ENTRY_MAX     1024
+#define XND_CKPT_VM_REGION_MAX 1023
 
-struct xnd_ckpt_header {
-        char                            magic[16];
+struct xnd_ckpt_header
+{
+  char magic[16];
 
-        uuid_t                          xnd_uuid;
-        u32                             xnd_pid;
-        u32                             xnd_ppid;
-        u32                             xnd_pgid;
+  uuid_t xnd_uuid;
+  u32 xnd_pid;
+  u32 xnd_ppid;
+  u32 xnd_pgid;
 
-        pid_t                           pid;
-        pid_t                           ppid;
-        pid_t                           pgid;
-        pid_t                           sid;
+  pid_t pid;
+  pid_t ppid;
+  pid_t pgid;
+  pid_t sid;
 
-        mach_port_t                     task_self;
-        mach_port_t                     host_self;
+  mach_port_t task_self;
+  mach_port_t host_self;
 
-        u32                             num_peers;
-        u32                             is_root_of_tree;
+  u32 num_peers;
+  u32 is_root_of_tree;
 
-        u32                             entry_count;
-        u32                             region_count;
-        struct shared_cache_info        shared_cache_info;
+  u32 entry_count;
+  u32 region_count;
+  struct shared_cache_info shared_cache_info;
 };
 
-static_assert(sizeof(((struct xnd_ckpt_header *)0)->magic) >=
-	      sizeof(XND_HEADER_MAGIC), "");
+static_assert (sizeof (((struct xnd_ckpt_header *)0)->magic)
+                   >= sizeof (XND_HEADER_MAGIC),
+               "");
 
-enum xnd_ckpt_entry {
-        XND_VM_REGION_ENTRY,
-        XND_VM_PAGE_ENTRY,
-        XND_UCONTEXT_ENTRY
+enum xnd_ckpt_entry
+{
+  XND_VM_REGION_ENTRY,
+  XND_VM_PAGE_ENTRY,
+  XND_UCONTEXT_ENTRY
 };
 
-struct xnd_manifest {
-        u32     entry_count;
-        u32     xnd_pids[XND_MANIFEST_ENTRY_MAX];
+struct xnd_manifest
+{
+  u32 entry_count;
+  u32 xnd_pids[XND_MANIFEST_ENTRY_MAX];
 };
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif /* __cplusplus */
 
-void xnd_ckptpath_name(char *, uuid_t, u64, u32, bool);
-void xnd_ckptdir_name(char *, char *, const uuid_t, u64);
-int xnd_ckptdir_create(uuid_t, u64);
-int xnd_ckptdir_open(const uuid_t, u64);
-int xnd_ckptdir_unlink(const uuid_t, u64);
+  void xnd_ckptpath_name (char *, uuid_t, u64, u32, bool);
+  void xnd_ckptdir_name (char *, char *, const uuid_t, u64);
+  int xnd_ckptdir_create (uuid_t, u64);
+  int xnd_ckptdir_open (const uuid_t, u64);
+  int xnd_ckptdir_unlink (const uuid_t, u64);
 
-int xnd_ckptfile_create(int, char *);
-int xnd_ckptfile_openat(int, u32);
-bool xnd_ckptfile_exists(int, u32);
-bool xnd_compressed_ckpt_exists(int, u32);
-int xnd_ckptfile_unlink(char *, u32);
-int xnd_ckptfile_unlinkat(int, u32);
+  int xnd_ckptfile_create (int, char *);
+  int xnd_ckptfile_openat (int, u32);
+  bool xnd_ckptfile_exists (int, u32);
+  bool xnd_compressed_ckpt_exists (int, u32);
+  int xnd_ckptfile_unlink (char *, u32);
+  int xnd_ckptfile_unlinkat (int, u32);
 
-int xnd_ckptfile_create_manifest(int);
-int xnd_ckptfile_write_manifest(u32, u32, u32, const uuid_t, u64);
-int xnd_ckptfile_extract_manifest(const char *, struct xnd_manifest *);
+  int xnd_ckptfile_create_manifest (int);
+  int xnd_ckptfile_write_manifest (u32, u32, u32, const uuid_t, u64);
+  int xnd_ckptfile_extract_manifest (const char *, struct xnd_manifest *);
 
-bool xnd_ckptfile_valid(const struct xnd_ckpt_header *);
-int xnd_ckptfile_parse(const char *, uuid_t, u64 *, u32 *);
-int xnd_ckptfile_name(char *, size_t, u32);
-int xnd_ckptfile_extract_header(char *, struct xnd_ckpt_header *);
-void xnd_ckptfile_write_header(struct xnd_ckpt_header *);
+  bool xnd_ckptfile_valid (const struct xnd_ckpt_header *);
+  int xnd_ckptfile_parse (const char *, uuid_t, u64 *, u32 *);
+  int xnd_ckptfile_name (char *, size_t, u32);
+  int xnd_ckptfile_extract_header (char *, struct xnd_ckpt_header *);
+  void xnd_ckptfile_write_header (struct xnd_ckpt_header *);
 
 #ifdef __cplusplus
 }

@@ -5,13 +5,14 @@
 
 #include <ucontext.h>
 
-__noreturn void xnd_setcontext(ucontext_t *uctx)
+__noreturn void
+xnd_setcontext (ucontext_t *uctx)
 {
-	ptrauth_strip_uctx(uctx);
-	_xnd_setcontext(uctx->uc_mcontext);
+  ptrauth_strip_uctx (uctx);
+  _xnd_setcontext (uctx->uc_mcontext);
 
-	xnd_error("fatal error: _xnd_setcontext failed\n");
-	xnd_abort();
+  xnd_error ("fatal error: _xnd_setcontext failed\n");
+  xnd_abort ();
 
-	unreachable();
+  unreachable ();
 }

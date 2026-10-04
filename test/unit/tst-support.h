@@ -25,7 +25,6 @@ struct test_config
 };
 
 int subprocess_run (const char *, char *const *);
-void spawn_threads (int, const pthread_attr_t *,
-		    void *(*) (void *), void *);
+void spawn_threads (int, const pthread_attr_t *, void *(*)(void *), void *);
 
 #endif /* XND_TEST_H */

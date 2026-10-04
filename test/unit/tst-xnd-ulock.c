@@ -29,7 +29,7 @@ static void *
 thread_doit (void *arg)
 {
   uint64_t step;
-  struct thread_args *args = (struct thread_args *) arg;
+  struct thread_args *args = (struct thread_args *)arg;
 
   for (step = 0; step < args->steps; step++)
     args->callback (args->arg);
@@ -45,20 +45,19 @@ xnd_ulock_verify (void)
   struct thread_args args;
 
   args.steps = 100000;
-  args.arg = (void *) &ulock;
-  args.callback = ^(void *lock)
-    {
-      struct xnd_ulock *ul = (struct xnd_ulock *) lock;
-      xnd_ulock_lock (ul);
-      counter++;
-      xnd_ulock_unlock (ul);
-    };
+  args.arg = (void *)&ulock;
+  args.callback = ^(void *lock) {
+    struct xnd_ulock *ul = (struct xnd_ulock *)lock;
+    xnd_ulock_lock (ul);
+    counter++;
+    xnd_ulock_unlock (ul);
+  };
 
   for (int n = 2; n <= 32; n <<= 1)
     {
-      spawn_threads (n, NULL, thread_doit, (void *) &args);
+      spawn_threads (n, NULL, thread_doit, (void *)&args);
       if ((n * args.steps) != counter)
-	return 1;
+        return 1;
       counter = 0;
     }
 
@@ -66,36 +65,35 @@ xnd_ulock_verify (void)
   __block uint64_t insertions = 0, deletions = 0;
 
   args.steps = 2500;
-  args.callback = ^(void *lock)
-    {
-      struct node *node = NULL;
-      struct xnd_ulock *ul = (struct xnd_ulock *) lock;
-      for (int i = 0; i < 5; i++)
-	{
-	  node = xmalloc (sizeof (*node));
-	  xnd_ulock_lock (ul);
-	  node->next = head;
-	  head = node;
-	  insertions++;
-	  xnd_ulock_unlock (ul);
-	}
-      for (int i = 0; i < 5; i++)
-	{
-	  xnd_ulock_lock (ul);
-	  node = head;
-	  head = head->next;
-	  deletions++;
-	  xnd_ulock_unlock (ul);
-	  free (node);
-	}
-    };
+  args.callback = ^(void *lock) {
+    struct node *node = NULL;
+    struct xnd_ulock *ul = (struct xnd_ulock *)lock;
+    for (int i = 0; i < 5; i++)
+      {
+        node = xmalloc (sizeof (*node));
+        xnd_ulock_lock (ul);
+        node->next = head;
+        head = node;
+        insertions++;
+        xnd_ulock_unlock (ul);
+      }
+    for (int i = 0; i < 5; i++)
+      {
+        xnd_ulock_lock (ul);
+        node = head;
+        head = head->next;
+        deletions++;
+        xnd_ulock_unlock (ul);
+        free (node);
+      }
+  };
 
   for (int n = 2; n <= 32; n <<= 1)
     {
-      spawn_threads (n, NULL, thread_doit, (void *) &args);
+      spawn_threads (n, NULL, thread_doit, (void *)&args);
       if ((head != NULL) || (insertions != (5 * args.steps * n))
-	  || (insertions != deletions))
-	return 1;
+          || (insertions != deletions))
+        return 1;
       insertions = 0, deletions = 0;
     }
 
@@ -106,18 +104,17 @@ static uint32_t
 do_bench (int nthrds, uint64_t steps, void (^cb) (void *), void *arg)
 {
   uint64_t start, end;
-  struct thread_args args =
-    {
-      .steps = steps,
-      .callback = cb,
-      .arg = arg,
-    };
+  struct thread_args args = {
+    .steps = steps,
+    .callback = cb,
+    .arg = arg,
+  };
 
   start = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
-  spawn_threads (nthrds, NULL, thread_doit, (void *) &args);
+  spawn_threads (nthrds, NULL, thread_doit, (void *)&args);
   end = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
 
-  return (uint32_t) ((end - start) / NSEC_PER_MSEC);
+  return (uint32_t)((end - start) / NSEC_PER_MSEC);
 }
 
 static uint32_t
@@ -126,15 +123,14 @@ xnd_ulock_bench (int nthrds, uint64_t steps, void (^work) (void))
   static struct xnd_ulock ulock = XND_ULOCK_INITIALIZER;
   void (^callback) (void *) = NULL;
 
-  callback = ^(void *arg)
-    {
-      struct xnd_ulock *ul = (struct xnd_ulock *) arg;
-      xnd_ulock_lock (ul);
-      work ();
-      xnd_ulock_unlock (ul);
-    };
+  callback = ^(void *arg) {
+    struct xnd_ulock *ul = (struct xnd_ulock *)arg;
+    xnd_ulock_lock (ul);
+    work ();
+    xnd_ulock_unlock (ul);
+  };
 
-  return do_bench (nthrds, steps, callback, (void *) &ulock);
+  return do_bench (nthrds, steps, callback, (void *)&ulock);
 }
 
 static uint32_t
@@ -143,15 +139,14 @@ pthread_mutex_bench (int nthrds, uint64_t steps, void (^work) (void))
   static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
   void (^callback) (void *) = NULL;
 
-  callback = ^(void *arg)
-    {
-      pthread_mutex_t *m = (pthread_mutex_t *) arg;
-      xpthread_mutex_lock (m);
-      work ();
-      xpthread_mutex_unlock (m);
-    };
+  callback = ^(void *arg) {
+    pthread_mutex_t *m = (pthread_mutex_t *)arg;
+    xpthread_mutex_lock (m);
+    work ();
+    xpthread_mutex_unlock (m);
+  };
 
-  return do_bench (nthrds, steps, callback, (void *) &mutex);
+  return do_bench (nthrds, steps, callback, (void *)&mutex);
 }
 
 static unsigned long
@@ -160,15 +155,14 @@ os_unfair_lock_bench (int nthrds, uint64_t steps, void (^work) (void))
   static os_unfair_lock lock = OS_UNFAIR_LOCK_INIT;
   void (^callback) (void *) = NULL;
 
-  callback = ^(void *arg)
-    {
-      os_unfair_lock_t l = (os_unfair_lock_t) arg;
-      os_unfair_lock_lock (l);
-      work ();
-      os_unfair_lock_unlock (l);
-    };
+  callback = ^(void *arg) {
+    os_unfair_lock_t l = (os_unfair_lock_t)arg;
+    os_unfair_lock_lock (l);
+    work ();
+    os_unfair_lock_unlock (l);
+  };
 
-  return do_bench (nthrds, steps, callback, (void *) &lock);
+  return do_bench (nthrds, steps, callback, (void *)&lock);
 }
 
 static int
@@ -190,13 +184,12 @@ do_test (void)
   x = xmalloc (sizeof (float) * 3);
   y = xmalloc (sizeof (float) * 3);
 
-  work = ^(void)
-    {
-      __unused float f = 0.0f;
-      f += *(x + 0) * *(y + 0);
-      f += *(x + 1) * *(y + 1);
-      f += *(x + 2) * *(y + 2);
-    };
+  work = ^(void) {
+    __unused float f = 0.0f;
+    f += *(x + 0) * *(y + 0);
+    f += *(x + 1) * *(y + 1);
+    f += *(x + 2) * *(y + 2);
+  };
 
   steps = 25000000;
   puts ("benchmarks (short critical section):\n");
@@ -218,21 +211,20 @@ do_test (void)
   key = xmalloc (64);
   txt = xmalloc (64);
 
-  work = ^(void)
-    {
-      for (int i = 63; i >= 0; i--)
-	{
-	  key[i] = '0' + ((rand () & 1) ^ 1);
-	  txt[i] = '0' + ((rand () ^ 1) & 1);
-	}
-      txt[63] = '\0';
-      setkey (key);
-      for (int i = 5; i >= 0; i--)
-	{
-	  encrypt (txt, 0);
-	  encrypt (txt, 1);
-	}
-    };
+  work = ^(void) {
+    for (int i = 63; i >= 0; i--)
+      {
+        key[i] = '0' + ((rand () & 1) ^ 1);
+        txt[i] = '0' + ((rand () ^ 1) & 1);
+      }
+    txt[63] = '\0';
+    setkey (key);
+    for (int i = 5; i >= 0; i--)
+      {
+        encrypt (txt, 0);
+        encrypt (txt, 1);
+      }
+  };
 
   steps = 200000;
   puts ("benchmarks (medium critical section):\n");
@@ -250,28 +242,27 @@ do_test (void)
   free (key);
   free (txt);
 
-  work = ^(void)
-    {
-      int fd;
-      char *a, *b;
-      const size_t n = 1 << 14;
+  work = ^(void) {
+    int fd;
+    char *a, *b;
+    const size_t n = 1 << 14;
 
-      a = xmalloc (n), b = xmalloc (n);
-      fd = open ("/dev/urandom", O_RDONLY);
-      for (int i = 50; i >= 0; i--)
-	{
-	  read (fd, a, n);
-	  read (fd, b, n);
-	  for (int k = n; k >= 0; k--)
-	    {
-	      a[k] ^= b[n - k];
-	      b[k] ^= a[n - k];
-	    }
-	}
-      free (a);
-      free (b);
-      close (fd);
-    };
+    a = xmalloc (n), b = xmalloc (n);
+    fd = open ("/dev/urandom", O_RDONLY);
+    for (int i = 50; i >= 0; i--)
+      {
+        read (fd, a, n);
+        read (fd, b, n);
+        for (int k = n; k >= 0; k--)
+          {
+            a[k] ^= b[n - k];
+            b[k] ^= a[n - k];
+          }
+      }
+    free (a);
+    free (b);
+    close (fd);
+  };
 
   steps = 250;
   puts ("benchmarks (long critical section):\n");

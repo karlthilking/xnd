@@ -7,8 +7,8 @@
 
 #include "common/time.h"
 
-unsigned int __sleep_hook(unsigned int);
-int __usleep_hook(useconds_t);
-int __nanosleep_hook(const struct timespec *, struct timespec *);
+unsigned int __sleep_hook (unsigned int);
+int __usleep_hook (useconds_t);
+int __nanosleep_hook (const struct timespec *, struct timespec *);
 
 #endif /* TIME_WRAPPERS_H */

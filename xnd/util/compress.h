@@ -7,11 +7,12 @@
 #define CHUNK 16384
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif /* __cplusplus */
 
-int xnd_compress_ckpt(int, char *);
-int xnd_decompress_ckpt(int, char *);
+  int xnd_compress_ckpt (int, char *);
+  int xnd_decompress_ckpt (int, char *);
 
 #ifdef __cplusplus
 }

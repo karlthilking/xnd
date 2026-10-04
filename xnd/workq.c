@@ -25,12 +25,11 @@ static void workq_thread_restore (void) __noreturn;
 extern pthread_key_t thread_self_key;
 extern struct thread_list thread_list;
 
-struct workqueue workq =
-  {
-    .wq_cfg = {0},
-    .wq_rwlock = PTHREAD_RWLOCK_INITIALIZER,
-    .wq_flags = 0,
-  };
+struct workqueue workq = {
+  .wq_cfg = { 0 },
+  .wq_rwlock = PTHREAD_RWLOCK_INITIALIZER,
+  .wq_flags = 0,
+};
 
 static inline void
 workq_lck_wrlock (void)
@@ -56,7 +55,7 @@ workq_reqthreads (int nthreads, pthread_priority_t pp, bool cooperative)
   int op, ret;
 
   op = (cooperative ? WQOPS_QUEUE_REQTHREADS2 : WQOPS_QUEUE_REQTHREADS);
-  ret = __workq_kernreturn (op, NULL, nthreads, (int) pp);
+  ret = __workq_kernreturn (op, NULL, nthreads, (int)pp);
   if (ret != 0)
     xnd_panic ("__workq_kernreturn: %s\n", strerror (errno));
 }
@@ -132,13 +131,13 @@ workq_thread_restore (void)
 
   thread_list_acquire ();
   TAILQ_FOREACH (t, &thread_list, ti_entry)
-    {
-      if (t->ti_wq_thread && t->ti_wq_free)
-	{
-	  self = t, self->ti_wq_free = 0;
-	  break;
-	}
-    }
+  {
+    if (t->ti_wq_thread && t->ti_wq_free)
+      {
+        self = t, self->ti_wq_free = 0;
+        break;
+      }
+  }
   thread_list_release ();
 
   if (__xnd_unlikely (self == NULL))
@@ -204,7 +203,7 @@ workq_setup_dispatch_hook (struct workq_kernreturn_args *args)
 void
 workq_suspend (void)
 {
-  struct timespec ts = {0};
+  struct timespec ts = { 0 };
 
   workq_lck_wrlock ();
   if ((workq.wq_flags & WQ_SETUP) != 0)
@@ -250,12 +249,12 @@ workq_restore (void)
 
   thread_list_acquire ();
   TAILQ_FOREACH (t, &thread_list, ti_entry)
-    {
-      if (t->ti_wq_thread)
-	{
-	  t->ti_wq_free = 1;
-	  workq_reqthreads (1, pp, false);
-	}
-    }
+  {
+    if (t->ti_wq_thread)
+      {
+        t->ti_wq_free = 1;
+        workq_reqthreads (1, pp, false);
+      }
+  }
   thread_list_release ();
 }

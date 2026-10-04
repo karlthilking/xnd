@@ -35,19 +35,19 @@ subprocess_run (const char *path, char *const argv[])
     {
       ret = waitpid (pid, &status, 0);
       if (ret < 0)
-	{
-	  if (errno != EINTR)
-	    err (1, "failed to wait on child");
-	}
+        {
+          if (errno != EINTR)
+            err (1, "failed to wait on child");
+        }
       else if (ret == pid)
-	{
-	  if (WIFEXITED (status))
-	    exit_status = WEXITSTATUS (status);
-	  else if (WIFSIGNALED (status))
-	    exit_status = WTERMSIG (status);
-	  else
-	    err (1, "child's status changed without exit or signal\n");
-	}
+        {
+          if (WIFEXITED (status))
+            exit_status = WEXITSTATUS (status);
+          else if (WIFSIGNALED (status))
+            exit_status = WTERMSIG (status);
+          else
+            err (1, "child's status changed without exit or signal\n");
+        }
     }
   while (ret != pid);
 
@@ -56,7 +56,7 @@ subprocess_run (const char *path, char *const argv[])
 
 void
 spawn_threads (int nthrds, const pthread_attr_t *attr,
-	       void *(*start_routine) (void *), void *arg)
+               void *(*start_routine) (void *), void *arg)
 {
   pthread_t *thrds = xmalloc (nthrds * sizeof (*thrds));
 
@@ -105,11 +105,11 @@ test_main (int argc, char **argv, struct test_config *config)
     {
       setpgid (0, 0);
       if (config->test_function != NULL)
-	exit (config->test_function ());
+        exit (config->test_function ());
       else if (config->test_function_argv != NULL)
-	exit (config->test_function_argv (argc, argv));
+        exit (config->test_function_argv (argc, argv));
       else
-	errx (1, "no test function defined");
+        errx (1, "no test function defined");
     }
 
   test_pid = pid;
@@ -133,9 +133,9 @@ test_main (int argc, char **argv, struct test_config *config)
     {
       ret = waitpid (pid, &status, 0);
       if (ret < 0)
-	err (1, "failed to wait on child process");
+        err (1, "failed to wait on child process");
       else if (ret == pid)
-	break;
+        break;
     }
 
   test_end = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
@@ -164,21 +164,21 @@ test_main (int argc, char **argv, struct test_config *config)
 int
 main (int argc, char *argv[])
 {
-  struct test_config test_config = {0};
+  struct test_config test_config = { 0 };
 
 #ifdef TEST_NAME
   test_config.test_name = TEST_NAME;
 #else
-# error "TEST_NAME not defined"
+#error "TEST_NAME not defined"
 #endif
 
 #ifdef PREPARE_FUNCTION
   test_config.prepare = PREPARE_FUNCTION;
 #endif
 
-#if defined (TEST_FUNCTION)
+#if defined(TEST_FUNCTION)
   test_config.test_function = TEST_FUNCTION;
-#elif defined (TEST_FUNCTION_ARGV)
+#elif defined(TEST_FUNCTION_ARGV)
   test_config.test_function_argv = TEST_FUNCTION_ARGV;
 #endif
 

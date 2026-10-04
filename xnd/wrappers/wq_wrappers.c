@@ -62,22 +62,19 @@ static WORKQ_CB (real_workq_cb);
 static KEVENT_CB (real_kevent_cb);
 static WORKLOOP_CB (real_workloop_cb);
 
-static void
-workq_tramp WORKQ_CB_ARGS
+static void workq_tramp WORKQ_CB_ARGS
 {
   workq_thread_prepare ();
   (*real_workq_cb) (arg1);
 }
 
-static void
-kevent_tramp KEVENT_CB_ARGS
+static void kevent_tramp KEVENT_CB_ARGS
 {
   workq_thread_prepare ();
   (*real_kevent_cb) (arg1, arg2);
 }
 
-static void
-workloop_tramp WORKLOOP_CB_ARGS
+static void workloop_tramp WORKLOOP_CB_ARGS
 {
   workq_thread_prepare ();
   (*real_workloop_cb) (arg1, arg2, arg3);
@@ -85,7 +82,7 @@ workloop_tramp WORKLOOP_CB_ARGS
 
 static int
 pthread_workqueue_setup_hook (struct pthread_workqueue_config *cfg,
-			      size_t cfg_size)
+                              size_t cfg_size)
 {
   struct workq_dispatch_config wdc_cfg;
 
@@ -100,7 +97,7 @@ pthread_workqueue_setup_hook (struct pthread_workqueue_config *cfg,
   if (cfg->version == 1)
     {
       if (cfg_size < offsetof (typeof (*cfg), queue_label_offs))
-	return EINVAL;
+        return EINVAL;
     }
   else if (cfg_size < sizeof (*cfg)) /* version == 2 */
     return EINVAL;
@@ -110,9 +107,8 @@ pthread_workqueue_setup_hook (struct pthread_workqueue_config *cfg,
   wdc_cfg.wdc_queue_serialno_offs = cfg->queue_serialno_offs;
   wdc_cfg.wdc_queue_label_offs = cfg->queue_label_offs;
 
-  struct workq_kernreturn_args args = {
-    WQOPS_SETUP_DISPATCH, &wdc_cfg, sizeof (wdc_cfg), 0
-  };
+  struct workq_kernreturn_args args = { WQOPS_SETUP_DISPATCH, &wdc_cfg,
+                                        sizeof (wdc_cfg), 0 };
 
   return workq_setup_dispatch_hook (&args);
 }
@@ -120,18 +116,17 @@ INTERPOSE (pthread_workqueue_setup_hook, pthread_workqueue_setup);
 
 static int
 _pthread_workqueue_init_hook (WORKQ_CB (workq_cb), int offset,
-			      __unused int flags)
+                              __unused int flags)
 {
-  struct pthread_workqueue_config cfg =
-    {
-      .flags = 0,
-      .version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
-      .kevent_cb = NULL,
-      .workloop_cb = NULL,
-      .workq_cb = workq_cb,
-      .queue_serialno_offs = offset,
-      .queue_label_offs = 0,
-    };
+  struct pthread_workqueue_config cfg = {
+    .flags = 0,
+    .version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
+    .kevent_cb = NULL,
+    .workloop_cb = NULL,
+    .workq_cb = workq_cb,
+    .queue_serialno_offs = offset,
+    .queue_label_offs = 0,
+  };
 
   return pthread_workqueue_setup_hook (&cfg, sizeof (cfg));
 }
@@ -139,46 +134,44 @@ INTERPOSE (_pthread_workqueue_init_hook, _pthread_workqueue_init);
 
 static int
 _pthread_workqueue_init_with_kevent_hook (WORKQ_CB (workq_cb),
-					  KEVENT_CB (kevent_cb),
-					  int offset, __unused int flags)
+                                          KEVENT_CB (kevent_cb), int offset,
+                                          __unused int flags)
 {
-   struct pthread_workqueue_config cfg =
-    {
-      .flags = 0,
-      .version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
-      .kevent_cb = kevent_cb,
-      .workloop_cb = NULL,
-      .workq_cb = workq_cb,
-      .queue_serialno_offs = offset,
-      .queue_label_offs = 0,
-    };
+  struct pthread_workqueue_config cfg = {
+    .flags = 0,
+    .version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
+    .kevent_cb = kevent_cb,
+    .workloop_cb = NULL,
+    .workq_cb = workq_cb,
+    .queue_serialno_offs = offset,
+    .queue_label_offs = 0,
+  };
 
-   return pthread_workqueue_setup_hook (&cfg, sizeof (cfg));
+  return pthread_workqueue_setup_hook (&cfg, sizeof (cfg));
 }
 INTERPOSE (_pthread_workqueue_init_with_kevent_hook,
-	   _pthread_workqueue_init_with_kevent);
+           _pthread_workqueue_init_with_kevent);
 
 static int
 _pthread_workqueue_init_with_workloop_hook (WORKQ_CB (workq_cb),
-					    KEVENT_CB (kevent_cb),
-					    WORKLOOP_CB (workloop_cb),
-					    int offset, __unused int flags)
+                                            KEVENT_CB (kevent_cb),
+                                            WORKLOOP_CB (workloop_cb),
+                                            int offset, __unused int flags)
 {
-   struct pthread_workqueue_config cfg =
-    {
-      .flags = 0,
-      .version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
-      .kevent_cb = kevent_cb,
-      .workloop_cb = workloop_cb,
-      .workq_cb = workq_cb,
-      .queue_serialno_offs = offset,
-      .queue_label_offs = 0,
-    };
+  struct pthread_workqueue_config cfg = {
+    .flags = 0,
+    .version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
+    .kevent_cb = kevent_cb,
+    .workloop_cb = workloop_cb,
+    .workq_cb = workq_cb,
+    .queue_serialno_offs = offset,
+    .queue_label_offs = 0,
+  };
 
-   return pthread_workqueue_setup_hook (&cfg, sizeof (cfg));
+  return pthread_workqueue_setup_hook (&cfg, sizeof (cfg));
 }
 INTERPOSE (_pthread_workqueue_init_with_workloop_hook,
-	   _pthread_workqueue_init_with_workloop);
+           _pthread_workqueue_init_with_workloop);
 
 static int
 __workq_kernreturn_hook (int op, void *arg2, int arg3, int arg4)

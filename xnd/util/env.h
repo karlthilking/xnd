@@ -5,15 +5,15 @@
 #include "xnd/xnd.h"
 #include <sys/types.h>
 
-#define XND_VIRTUAL_PID_ENV     "XND_VIRTUAL_PID"
-#define XND_REAL_PID_ENV        "XND_REAL_PID"
-#define XND_VIRTUAL_PPID_ENV    "XND_VIRTUAL_PPID"
-#define XND_REAL_PPID_ENV       "XND_REAL_PPID"
+#define XND_VIRTUAL_PID_ENV  "XND_VIRTUAL_PID"
+#define XND_REAL_PID_ENV     "XND_REAL_PID"
+#define XND_VIRTUAL_PPID_ENV "XND_VIRTUAL_PPID"
+#define XND_REAL_PPID_ENV    "XND_REAL_PPID"
 
-#define XND_PROGRAM_ENV         "XND_PROGRAM"
-#define XND_CKPT_SIGNAL_ENV     "XND_CKPT_SIGNAL"
-#define XND_USE_ZLIB_ENV        "XND_USE_ZLIB"
-#define XND_CKPT_INTERVAL_ENV   "XND_CKPT_INTERVAL"
+#define XND_PROGRAM_ENV       "XND_PROGRAM"
+#define XND_CKPT_SIGNAL_ENV   "XND_CKPT_SIGNAL"
+#define XND_USE_ZLIB_ENV      "XND_USE_ZLIB"
+#define XND_CKPT_INTERVAL_ENV "XND_CKPT_INTERVAL"
 
 /*
  * Environment variables and definitions to control when
@@ -25,38 +25,39 @@
 #define XND_UNLINK_TMP_ENV "XND_UNLINK_TMP"
 #define UNLINK_TMP_AT_INIT 0
 #define UNLINK_TMP_AT_EXIT 1
-#define UNLINK_TMP_NEVER 2
+#define UNLINK_TMP_NEVER   2
 #define UNLINK_TMP_DEFAULT UNLINK_TMP_AT_EXIT
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif /* __cplusplus */
 
-void env_set_pid_info(pid_t, pid_t, pid_t, pid_t);
-void env_get_pid_info(pid_t *, pid_t *, pid_t *, pid_t *);
+  void env_set_pid_info (pid_t, pid_t, pid_t, pid_t);
+  void env_get_pid_info (pid_t *, pid_t *, pid_t *, pid_t *);
 
-void env_set_program_name(char *);
-char *env_get_program_name(void);
+  void env_set_program_name (char *);
+  char *env_get_program_name (void);
 
-void env_set_tmp_binary(char *);
-char *env_get_tmp_binary(void);
-void env_set_unlink_tmp(char *);
-bool env_unlink_tmp_at_init(void);
-bool env_unlink_tmp_at_exit(void);
+  void env_set_tmp_binary (char *);
+  char *env_get_tmp_binary (void);
+  void env_set_unlink_tmp (char *);
+  bool env_unlink_tmp_at_init (void);
+  bool env_unlink_tmp_at_exit (void);
 
-void env_set_ckpt_signal(char *);
-int env_get_ckpt_signal(void);
+  void env_set_ckpt_signal (char *);
+  int env_get_ckpt_signal (void);
 
-void env_set_dyld_shared_region_private(void);
-void env_unset_dyld_shared_region(void);
-char *env_get_dyld_shared_region(void);
-bool env_dyld_shared_region_is_private(void);
+  void env_set_dyld_shared_region_private (void);
+  void env_unset_dyld_shared_region (void);
+  char *env_get_dyld_shared_region (void);
+  bool env_dyld_shared_region_is_private (void);
 
-void env_set_zlib_compression(char *);
-bool env_use_zlib_compression(void);
+  void env_set_zlib_compression (char *);
+  bool env_use_zlib_compression (void);
 
-void env_set_ckpt_interval(const char *);
-int env_get_ckpt_interval(void);
+  void env_set_ckpt_interval (const char *);
+  int env_get_ckpt_interval (void);
 
 #ifdef __cplusplus
 }

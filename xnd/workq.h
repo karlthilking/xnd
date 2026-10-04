@@ -6,30 +6,30 @@
 #include "common/time.h"
 #include "wrappers/wq_wrappers.h"
 
-extern int __bsdthread_ctl (uintptr_t cmd, uintptr_t arg2,
-			    uintptr_t arg3, uintptr_t arg4);
+extern int __bsdthread_ctl (uintptr_t cmd, uintptr_t arg2, uintptr_t arg3,
+                            uintptr_t arg4);
 extern int __pthread_workqueue_setkill (int enable);
 extern int _pthread_workqueue_allow_send_signals (int sig);
 
-#define BSDTHREAD_CTL_WORKQ_ALLOW_KILL 		0x1000
-#define BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK 	0x4000
+#define BSDTHREAD_CTL_WORKQ_ALLOW_KILL    0x1000
+#define BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK 0x4000
 
-#define trace_workq_thread_start(t)					\
-  ({									\
-    struct thread_info *__t = (t);					\
-    printf ("%s: pthread=%p, kport=%u, tid=%llu\n",			\
-	    __func__, __t->ti_self, __t->ti_kport, __t->ti_tid);	\
+#define trace_workq_thread_start(t)                                         \
+  ({                                                                        \
+    struct thread_info *__t = (t);                                          \
+    printf ("%s: pthread=%p, kport=%u, tid=%llu\n", __func__, __t->ti_self, \
+            __t->ti_kport, __t->ti_tid);                                    \
   })
 
-#define workq_sysctl(type, name)			    \
-  ({							    \
-    int __ret;						    \
-    type __val;						    \
-    size_t __len = sizeof (__val);			    \
+#define workq_sysctl(type, name)                            \
+  ({                                                        \
+    int __ret;                                              \
+    type __val;                                             \
+    size_t __len = sizeof (__val);                          \
     __ret = sysctlbyname ((name), &__val, &__len, NULL, 0); \
-    if (__xnd_unlikely (__ret == -1))				    \
+    if (__xnd_unlikely (__ret == -1))                       \
       xnd_panic ("sysctlbyname: %s\n", strerror (errno));   \
-    __val;						    \
+    __val;                                                  \
   })
 
 /*
@@ -45,7 +45,7 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define wq_stalled_window_usecs() \
   workq_sysctl (uint32_t, "kern.wq_stalled_window_usecs")
 #define wq_stalled_window_nsecs() \
-  ((uint64_t) wq_stalled_window_usecs () * NSEC_PER_USEC)
+  ((uint64_t)wq_stalled_window_usecs () * NSEC_PER_USEC)
 
 /*
  * kern.wq_reduce_pool_window_usecs
@@ -55,7 +55,7 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define wq_reduce_pool_window_usecs() \
   workq_sysctl (uint32_t, "kern.wq_reduce_pool_window_usecs")
 #define wq_reduce_pool_window_nsecs() \
-  ((uint64_t) wq_reduce_pool_window_usecs () * NSEC_PER_USEC)
+  ((uint64_t)wq_reduce_pool_window_usecs () * NSEC_PER_USEC)
 
 /*
  * kern.wq_max_timer_interval_usecs
@@ -68,10 +68,10 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define wq_max_timer_interval_usecs() \
   workq_sysctl (uint32_t, "kern.wq_max_timer_interval_usecs")
 #define wq_max_timer_interval_nsecs() \
-  ((uint64_t) wq_max_timer_interval_usecs () * NSEC_PER_USEC)
+  ((uint64_t)wq_max_timer_interval_usecs () * NSEC_PER_USEC)
 
-#define WQ_SETUP 	0x0001
-#define WQ_RESTORING	0x0002
+#define WQ_SETUP     0x0001
+#define WQ_RESTORING 0x0002
 
 struct workqueue
 {

@@ -11,7 +11,7 @@
 #include "xnd/thread_info.h"
 #include "stdlib_wrappers.h"
 
-extern void (*__cleanup)(void);
+extern void (*__cleanup) (void);
 
 /*
  * ptrauth_check_cleanup_ptr:
@@ -33,135 +33,143 @@ extern void (*__cleanup)(void);
  *    pacib __cleanup, modifier
  */
 static inline void
-ptrauth_check_cleanup_ptr(void)
+ptrauth_check_cleanup_ptr (void)
 {
-	u64 mod;
+  u64 mod;
 
-	if (PTRAUTH_SIGNED(__cleanup)) {
-		mod = (u64)&__cleanup;
-		mod |= (CLEANUP_PTRAUTH_DISCRIMINATOR << 48);
-		PTRAUTH_XPACI(__cleanup);
-		PTRAUTH_PACIB(__cleanup, mod);
-	}
+  if (PTRAUTH_SIGNED (__cleanup))
+    {
+      mod = (u64)&__cleanup;
+      mod |= (CLEANUP_PTRAUTH_DISCRIMINATOR << 48);
+      PTRAUTH_XPACI (__cleanup);
+      PTRAUTH_PACIB (__cleanup, mod);
+    }
 }
 
 void
-__exit_hook(int status)
+__exit_hook (int status)
 {
-	ptrauth_check_cleanup_ptr();
-	exit(status);
+  ptrauth_check_cleanup_ptr ();
+  exit (status);
 }
 
 void
-__abort_hook(void)
+__abort_hook (void)
 {
-	ptrauth_check_cleanup_ptr();
-	set_xnd_state(XND_ABORTING);
-	abort();
-}
-
-void *__calloc_hook(size_t count, size_t size)
-{
-        void *retval;
-
-        if (XND_SKIP_INTERPOSE())
-                return calloc(count, size);
-
-        unsafe_enter();
-        retval = calloc(count, size);
-        unsafe_exit();
-
-        return retval;
-}
-
-void __free_hook(void *ptr)
-{
-	if (XND_SKIP_INTERPOSE()) {
-		free(ptr);
-		return;
-	}
-
-	/*
-	 * Don't waste time calling unsafe_(enter|exit) if there is
-	 * nothing to free.
-	 */
-	if (ptr == NULL)
-		return;
-
-	unsafe_enter();
-	free(ptr);
-	unsafe_exit();
-}
-
-void *__malloc_hook(size_t size)
-{
-        void *retval;
-
-        if (XND_SKIP_INTERPOSE())
-                return malloc(size);
-
-        unsafe_enter();
-        retval = malloc(size);
-        unsafe_exit();
-
-        return retval;
-}
-
-void *__realloc_hook(void *ptr, size_t size)
-{
-        void *retval;
-
-        if (XND_SKIP_INTERPOSE())
-                return realloc(ptr, size);
-
-        unsafe_enter();
-        retval = realloc(ptr, size);
-        unsafe_exit();
-
-        return retval;
-}
-
-void *__reallocf_hook(void *ptr, size_t size)
-{
-        void *retval;
-
-        if (XND_SKIP_INTERPOSE())
-                return reallocf(ptr, size);
-
-        unsafe_enter();
-        retval = reallocf(ptr, size);
-        unsafe_exit();
-
-        return retval;
-}
-
-void *__valloc_hook(size_t size)
-{
-        void *retval;
-
-        if (XND_SKIP_INTERPOSE())
-                return valloc(size);
-
-        unsafe_enter();
-        retval = valloc(size);
-        unsafe_exit();
-
-        return retval;
+  ptrauth_check_cleanup_ptr ();
+  set_xnd_state (XND_ABORTING);
+  abort ();
 }
 
 void *
-__aligned_alloc_hook(size_t align, size_t size)
+__calloc_hook (size_t count, size_t size)
 {
-	void *ptr = NULL;
+  void *retval;
 
-	if (XND_SKIP_INTERPOSE())
-		return aligned_alloc(align, size);
+  if (XND_SKIP_INTERPOSE ())
+    return calloc (count, size);
 
-	unsafe_enter();
-	ptr = aligned_alloc(align, size);
-	unsafe_exit();
+  unsafe_enter ();
+  retval = calloc (count, size);
+  unsafe_exit ();
 
-	return ptr;
+  return retval;
+}
+
+void
+__free_hook (void *ptr)
+{
+  if (XND_SKIP_INTERPOSE ())
+    {
+      free (ptr);
+      return;
+    }
+
+  /*
+	 * Don't waste time calling unsafe_(enter|exit) if there is
+	 * nothing to free.
+	 */
+  if (ptr == NULL)
+    return;
+
+  unsafe_enter ();
+  free (ptr);
+  unsafe_exit ();
+}
+
+void *
+__malloc_hook (size_t size)
+{
+  void *retval;
+
+  if (XND_SKIP_INTERPOSE ())
+    return malloc (size);
+
+  unsafe_enter ();
+  retval = malloc (size);
+  unsafe_exit ();
+
+  return retval;
+}
+
+void *
+__realloc_hook (void *ptr, size_t size)
+{
+  void *retval;
+
+  if (XND_SKIP_INTERPOSE ())
+    return realloc (ptr, size);
+
+  unsafe_enter ();
+  retval = realloc (ptr, size);
+  unsafe_exit ();
+
+  return retval;
+}
+
+void *
+__reallocf_hook (void *ptr, size_t size)
+{
+  void *retval;
+
+  if (XND_SKIP_INTERPOSE ())
+    return reallocf (ptr, size);
+
+  unsafe_enter ();
+  retval = reallocf (ptr, size);
+  unsafe_exit ();
+
+  return retval;
+}
+
+void *
+__valloc_hook (size_t size)
+{
+  void *retval;
+
+  if (XND_SKIP_INTERPOSE ())
+    return valloc (size);
+
+  unsafe_enter ();
+  retval = valloc (size);
+  unsafe_exit ();
+
+  return retval;
+}
+
+void *
+__aligned_alloc_hook (size_t align, size_t size)
+{
+  void *ptr = NULL;
+
+  if (XND_SKIP_INTERPOSE ())
+    return aligned_alloc (align, size);
+
+  unsafe_enter ();
+  ptr = aligned_alloc (align, size);
+  unsafe_exit ();
+
+  return ptr;
 }
 
 /**
@@ -170,55 +178,59 @@ __aligned_alloc_hook(size_t align, size_t size)
  * Thus, a checkpoint should be delayed when a user thread is potentially
  * holding one of these internal locks.
  */
-u32 __arc4random_hook(void)
+u32
+__arc4random_hook (void)
 {
-        u32 retval;
+  u32 retval;
 
-        if (XND_SKIP_INTERPOSE())
-                return arc4random();
+  if (XND_SKIP_INTERPOSE ())
+    return arc4random ();
 
-        unsafe_enter();
-        retval = arc4random();
-        unsafe_exit();
+  unsafe_enter ();
+  retval = arc4random ();
+  unsafe_exit ();
 
-        return retval;
+  return retval;
 }
 
-void __arc4random_buf_hook(void *buf, size_t nbyte)
+void
+__arc4random_buf_hook (void *buf, size_t nbyte)
 {
-        if (XND_SKIP_INTERPOSE()) {
-                arc4random_buf(buf, nbyte);
-                return;
-        }
+  if (XND_SKIP_INTERPOSE ())
+    {
+      arc4random_buf (buf, nbyte);
+      return;
+    }
 
-        unsafe_enter();
-        arc4random_buf(buf, nbyte);
-        unsafe_exit();
+  unsafe_enter ();
+  arc4random_buf (buf, nbyte);
+  unsafe_exit ();
 }
 
-u32 __arc4random_uniform_hook(u32 upper)
+u32
+__arc4random_uniform_hook (u32 upper)
 {
-        u32 retval;
+  u32 retval;
 
-	if (XND_SKIP_INTERPOSE())
-		return arc4random_uniform(upper);
+  if (XND_SKIP_INTERPOSE ())
+    return arc4random_uniform (upper);
 
-        unsafe_enter();
-        retval = arc4random_uniform(upper);
-        unsafe_exit();
+  unsafe_enter ();
+  retval = arc4random_uniform (upper);
+  unsafe_exit ();
 
-        return retval;
+  return retval;
 }
 
-INTERPOSE(__exit_hook, exit);
-INTERPOSE(__abort_hook, abort);
-INTERPOSE(__calloc_hook, calloc);
-INTERPOSE(__free_hook, free);
-INTERPOSE(__malloc_hook, malloc);
-INTERPOSE(__realloc_hook, realloc);
-INTERPOSE(__reallocf_hook, reallocf);
-INTERPOSE(__valloc_hook, valloc);
-INTERPOSE(__aligned_alloc_hook, aligned_alloc);
-INTERPOSE(__arc4random_hook, arc4random);
-INTERPOSE(__arc4random_buf_hook, arc4random_buf);
-INTERPOSE(__arc4random_uniform_hook, arc4random_uniform);
+INTERPOSE (__exit_hook, exit);
+INTERPOSE (__abort_hook, abort);
+INTERPOSE (__calloc_hook, calloc);
+INTERPOSE (__free_hook, free);
+INTERPOSE (__malloc_hook, malloc);
+INTERPOSE (__realloc_hook, realloc);
+INTERPOSE (__reallocf_hook, reallocf);
+INTERPOSE (__valloc_hook, valloc);
+INTERPOSE (__aligned_alloc_hook, aligned_alloc);
+INTERPOSE (__arc4random_hook, arc4random);
+INTERPOSE (__arc4random_buf_hook, arc4random_buf);
+INTERPOSE (__arc4random_uniform_hook, arc4random_uniform);
