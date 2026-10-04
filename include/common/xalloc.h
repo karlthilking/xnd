@@ -2,43 +2,60 @@
 #ifndef XND_XALLOC_H
 #define XND_XALLOC_H
 
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "compiler.h"
 
-#ifdef xnd_panic
-# define xalloc_die(fmt, ...) xnd_panic(fmt, ##__VA_ARGS__)
-#else
-# include <stdlib.h>
-# define xalloc_die(fmt, ...)			     \
-	do {					     \
-		fprintf(stderr, fmt, ##__VA_ARGS__); \
-		exit(-1);			     \
-	} while (0)
-#endif
+#define xalloc_panic(msg, errnum)			\
+  do {							\
+    if (isatty (2))					\
+      dprintf (2, msg ": %s\n", strerror (errnum));	\
+    exit (1);						\
+  } while (0)
 
-#define __xalloc(op, bytes, ...)					\
-	({								\
-		void *__p = op(__VA_ARGS__);				\
-		if (unlikely(__p == NULL))				\
-			xalloc_die("%s failed to allocate %zu bytes\n", \
-				   TOSTRING(op), bytes);		\
-		__p;							\
-	})
+#define __xalloc(op, ...)			\
+  ({						\
+    void *__p = op (__VA_ARGS__);		\
+    if (unlikely (__p == NULL))			\
+      xalloc_panic (TOSTRING (op), errno);	\
+    __p;					\
+  })
 
-#define xmalloc(size) \
-	__xalloc(malloc, size, size)
-#define xcalloc(count, size) \
-	__xalloc(calloc, count * size, count, size)
-#define xrealloc(ptr, size) \
-	__xalloc(realloc, size, ptr, size)
-#define xaligned_alloc(align, size) \
-	__xalloc(aligned_alloc, size, align, size)
+#define xmalloc(n)				\
+  ({						\
+    size_t __n = (n);				\
+    __xalloc (malloc, __n);			\
+  })
 
-#define xposix_memalign(ptr, align, size)		      \
-	do {						      \
-		int __err = posix_memalign(ptr, align, size); \
-		if (unlikely(__err != 0))		      \
-			xalloc_die("posix_memalign: %s\n",    \
-				   strerror(__err));	      \
-	} while (0)
+#define xcalloc(cnt, size)			\
+  ({						\
+    size_t __cnt = (cnt), __size = (size);	\
+    __xalloc (calloc, __cnt, __size);		\
+  })
+
+#define xrealloc(ptr, size)			\
+  ({						\
+    void *__ptr = (ptr);			\
+    size_t __size = (size);			\
+    __xalloc (realloc, __ptr, __size);		\
+  })
+
+#define xaligned_alloc(align, size)	       \
+  ({					       \
+    size_t __align = (align), __size = (size); \
+    __xalloc (aligned_alloc, __align, __size); \
+  })
+
+#define xposix_memalign(ptr, align, size)			\
+  ((void)							\
+   ({								\
+     void **__ptr = (ptr);					\
+     size_t __align = (align), __size = (size);			\
+     int __err = posix_memalign (__ptr, __align, __size);	\
+     if (unlikely (__err != 0))					\
+       xalloc_panic ("posix_memalign", __err);			\
+  }))
 
 #endif /* XND_XALLOC_H */
