@@ -99,7 +99,7 @@ enum xnd_log_level {
 #if DEBUG || DEVELOPMENT
 # define xnd_assert(expr)					     \
 	do {							     \
-		if (unlikely(!(expr))) {			     \
+		if (__xnd_unlikely(!(expr))) {			     \
 			xnd_error("assertion failure: %s\n", #expr); \
 			xnd_abort();				     \
 		}						     \

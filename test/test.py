@@ -102,11 +102,12 @@ def kill_computation(pgid: int):
         os.killpg(pgid, signal.SIGTERM)
     except:
         pass
+
     ret = subprocess.run(['pgrep', 'xnd'], capture_output=True, text=True)
     pidlist = [int(p) for p in ret.stdout.split('\n') if len(p) != 0]
     for pid in pidlist:
         try:
-            os.kill(pid, signal.SIGTERM)
+            os.kill(pid, signal.SIGKILL)
         except:
             pass
 
@@ -146,10 +147,7 @@ def verify(
     proc.wait()
 
     for cycle in range(iterations):
-        last = True if cycle == iterations - 1 else False
-        print(f"[{name}] restart {cycle + 1}/{iterations}"
-              f"{' (final, running to completion)' if last else ''}")
-
+        last = (cycle == iterations - 1)
         if last:
             ret = False
             proc = subprocess.Popen(
@@ -159,7 +157,12 @@ def verify(
             )
             disable_checkpoint(xnd, timeout=5)
 
+            print(f"[{name}] restart {cycle + 1}/{iterations} "
+                  f"(pid: {proc.pid})")
+
             code = proc.wait()
+            kill_computation(proc.pid)
+
             ret = print_exit_status(name, code)
             if top_level_dir is not None:
                 os.system(f"rm -rf {top_level_dir}")
@@ -172,6 +175,9 @@ def verify(
             start_new_session=True, text=True, close_fds=True
         )
         os.close(slave_fd)
+
+        print(f"[{name}] restart {cycle + 1}/{iterations} "
+              f"(pid: {proc.pid})")
 
         next_ckpt_dir = await_checkpoint(xnd, master_fd, ckpt_interval)
         if next_ckpt_dir is None:

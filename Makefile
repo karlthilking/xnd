@@ -15,13 +15,13 @@ endif
 
 CFLAGS := \
 	-std=c17 -Wall -Wno-deprecated-declarations \
-	-D_XOPEN_SOURCE \
+	-Wimplicit-fallthrough -D_XOPEN_SOURCE \
 	-DDEVELOPMENT=$(DEVELOPMENT) -DTIMING=$(TIMING) -DDEBUG=$(DEBUG) \
 	-g $(OPTFLAGS) -arch $(ARCH) -iquote . -iquote ./include
 
 CXXFLAGS := \
 	-std=c++20 -Wall -Wno-deprecated-declarations \
-	-D_XOPEN_SOURCE \
+	-Wimplicit-fallthrough -D_XOPEN_SOURCE \
 	-DDEVELOPMENT=$(DEVELOPMENT) -DTIMING=$(TIMING) -DDEBUG=$(DEBUG) \
 	-g $(OPTFLAGS) -arch $(ARCH) -iquote . -iquote ./include
 
@@ -57,7 +57,9 @@ LIBXND_OBJECTS := \
         $(BUILD)/pid_wrappers.o \
         $(BUILD)/fd.o \
         $(BUILD)/env.o \
-        $(BUILD)/compress.o
+        $(BUILD)/compress.o \
+	$(BUILD)/wq_wrappers.o \
+	$(BUILD)/workq.o
 
 XND_RESTART_INTERNAL_SOURCES := \
         xnd/xnd_restart_internal.c \

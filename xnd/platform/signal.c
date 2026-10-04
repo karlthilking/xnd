@@ -34,14 +34,15 @@ xnd_sigreturn(ucontext_t *uctx, int ctxstyle, uintptr_t token)
 	unreachable();
 }
 
+
 /*
  * xnd_sigtramp:
  *  Invoke user signal handler and use xnd_sigreturn to restore
  *  current thread through PAC-aware return path.
  */
 static void
-xnd_sigtramp(union __sigaction_u __sigaction_u, int sigstyle, int sig,
-	     siginfo_t *sinfo, ucontext_t *uctx, uintptr_t token)
+xnd_sigtramp(union __sigaction_u __sigaction_u, int sigstyle,
+	int sig, siginfo_t *sinfo, ucontext_t *uctx, uintptr_t token)
 {
 	sa_sigaction(sig, sinfo, uctx);
 	xnd_sigreturn(uctx, UC_FLAVOR, token);
@@ -49,42 +50,47 @@ xnd_sigtramp(union __sigaction_u __sigaction_u, int sigstyle, int sig,
 }
 
 int
-xnd_sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
+xnd_sigaction(int sig, const struct sigaction *nsv, struct sigaction *osv)
 {
-	int ret = 0;
-	struct __sigaction nsv, osv;
+	int ret;
+	struct __sigaction sa, osa;
+	struct __sigaction *sap;
 
 	if (sig <= 0 || sig >= NSIG) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	if (act != NULL && (sig == SIGSTOP || sig == SIGKILL)) {
+	if (nsv != NULL && (sig == SIGSTOP || sig == SIGKILL)) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	if (act != NULL) {
-		nsv.sa_flags = act->sa_flags;
-		nsv.sa_flags &= ~SA_VALIDATE_SIGRETURN_FROM_SIGTRAMP;
-		nsv.sa_mask = act->sa_mask;
-		nsv.sa_handler = act->sa_handler;
-		nsv.sa_tramp = (void *)xnd_sigtramp;
-		ret = __sigaction(sig, &nsv, &osv);
-	} else if (oact != NULL) {
-		ret = __sigaction(sig, NULL, &osv);
+	sap = (struct __sigaction *)0;
+	if (nsv != NULL) {
+		sa.sa_handler = nsv->sa_handler;
+		sa.sa_tramp = (void *)xnd_sigtramp;
+		sa.sa_mask = nsv->sa_mask;
+		sa.sa_flags = nsv->sa_flags;
+		sa.sa_flags &= ~SA_VALIDATE_SIGRETURN_FROM_SIGTRAMP;
+		sap = &sa;
 	}
 
-	if (oact != NULL && ret == 0) {
-		oact->sa_mask = osv.sa_mask;
-		oact->sa_flags = osv.sa_flags;
-		oact->sa_handler = osv.sa_handler;
+	ret = __sigaction(sig, sap, &osa);
+	if (osv != NULL && ret == 0) {
+		osv->sa_handler = osa.sa_handler;
+		osv->sa_mask = osa.sa_mask;
+		osv->sa_flags = osa.sa_flags;
 	}
 
-	if (ret != 0) {
+	/*
+	 * FIXME:
+	 *  Does __sigaction return an error number or -1??
+	 */
+	if (ret > 0) {
 		errno = ret;
 		ret = -1;
 	}
 
-        return ret;
+	return ret;
 }

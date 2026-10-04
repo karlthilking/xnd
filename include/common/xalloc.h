@@ -18,7 +18,7 @@
 #define __xalloc(op, ...)			\
   ({						\
     void *__p = op (__VA_ARGS__);		\
-    if (unlikely (__p == NULL))			\
+    if (__xnd_unlikely (__p == NULL))			\
       xalloc_panic (TOSTRING (op), errno);	\
     __p;					\
   })
@@ -54,7 +54,7 @@
      void **__ptr = (ptr);					\
      size_t __align = (align), __size = (size);			\
      int __err = posix_memalign (__ptr, __align, __size);	\
-     if (unlikely (__err != 0))					\
+     if (__xnd_unlikely (__err != 0))					\
        xalloc_panic ("posix_memalign", __err);			\
   }))
 

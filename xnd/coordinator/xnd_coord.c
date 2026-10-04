@@ -87,7 +87,7 @@ static inline pid_t coord_next_virt_pid(void)
 {
         pid_t next = coord_info.next_virt_pid++;
 
-        if (unlikely(pid_table_virtual_pid_exists(next))) {
+        if (__xnd_unlikely(pid_table_virtual_pid_exists(next))) {
                 xnd_error("Virtual pid already exists: %d\n", next);
                 coord_exit(COORD_EXIT_FAILURE);
         }

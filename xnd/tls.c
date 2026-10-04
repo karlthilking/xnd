@@ -1,112 +1,130 @@
 /* tls.c */
+#include <errno.h>
 #include <pthread.h>
+#include <time.h>
+
 #include "xnd/xnd.h"
 #include "xnd/tls.h"
+#include "xnd/thread_info.h"
 #include "wrappers/pthread_wrappers.h"
 
-static uintptr_t _pthread_ptr_munge_token;
+extern uintptr_t xnd_munge_token;
+extern pthread_key_t tlv_flag_key;
 
-int
-thread_ptr_munge_save(void)
+__private_extern uintptr_t _pthread_ptr_munge_token = 0;
+
+void
+pthread_ptr_munge_save(void)
 {
-	long sig;
-	uintptr_t self, tsd_self, munge, tsd_munge;
-
-	self = (uintptr_t)pthread_self();
-	tsd_self = *tsd_slot_access(uintptr_t, __TSD_THREAD_SELF);
-	if (self != tsd_self) {
-		xnd_warn("pthread_self != __TSD_THREAD_SELF\n");
-		return -1;
-	}
-
-	sig = *(long *)self;
-	munge = self ^ sig;
-	tsd_munge = *tsd_slot_access(uintptr_t, __TSD_PTR_MUNGE);
-	if (munge != tsd_munge) {
-		xnd_warn("_pthread_ptr_munge_token != __TSD_PTR_MUNGE\n");
-		return -1;
-	}
-
-	_pthread_ptr_munge_token = munge;
-	return 0;
+	pthread_t self = pthread_self();
+	_pthread_ptr_munge_token = ((uintptr_t)self ^ self->__sig);
 }
 
 void
-thread_ptr_munge_fixup(void)
+pthread_ptr_munge_restore(void)
 {
-	long sig;
-	uintptr_t self, munge, *addr;
-
-	self = *tsd_slot_access(uintptr_t, __TSD_THREAD_SELF);
-	sig = *(long *)self;
-
-	if ((sig ^ _pthread_ptr_munge_token) != self) {
-		sig = self ^ _pthread_ptr_munge_token;
-		*(long *)self = sig;
-	}
-
-	addr = tsd_slot_access(uintptr_t, __TSD_PTR_MUNGE);
-	munge = *addr;
-	if (munge != _pthread_ptr_munge_token)
-		*addr = _pthread_ptr_munge_token;
+	pthread_t self = tsd_getspecific(__TSD_THREAD_SELF);
+	self->__sig = ((uintptr_t)self ^ _pthread_ptr_munge_token);
+	tsd_setspecific(__TSD_PTR_MUNGE, _pthread_ptr_munge_token);
 }
 
+/*
+ * xnd_tlv_init:
+ *  Use the xnd_key structure, tlv_flag_key, initialized in
+ *  thread_list_init as storage for thread-local initialization flag.
+ */
 void
 xnd_tlv_init(void)
 {
-	extern struct thread_info *thread_self_or_null(void);
-
-	*tsd_slot_access(u64, __TSD_XND_FLAG) = 0ull;
-	barrier();
-
-	(void)thread_self_or_null();
-
-	barrier();
-	*tsd_slot_access(u64, __TSD_XND_FLAG) = __TSD_XND_INIT;
+	xpthread_setspecific(tlv_flag_key, NULL);
+	(void)thread_self();
+	xpthread_setspecific(tlv_flag_key, XND_TLV_INIT);
 }
 
+/*
+ * xnd_tlv_fini:
+ *  Set tlv_flag_key's tsd value to XND_TLV_NULL, to mark that
+ *  thread-local variables should not be accessed.
+ */
 void
 xnd_tlv_fini(void)
 {
-	*tsd_slot_access(u64, __TSD_XND_FLAG) = 0ull;
+	xpthread_setspecific(tlv_flag_key, NULL);
+}
+
+bool
+xnd_tlv_ok(void)
+{
+	return (pthread_getspecific(tlv_flag_key) == XND_TLV_INIT);
 }
 
 static inline bool
 check_tsd_pthread_struct_offset(void)
 {
 	uintptr_t tsd, self;
+	bool ok;
 
 	tsd = self_tsd_base();
 	self = (uintptr_t)pthread_self();
 
-	if (tsd + TSD_PTHREAD_OFFSET != self) {
-		xnd_error("tsd pthread struct offset check failed\n");
-		return false;
-	}
+	ok = ((self + PTHREAD_TSD_OFFSET == tsd) &&
+		(tsd + TSD_PTHREAD_OFFSET == self));
 
-	return true;
+#if DEBUG || DEVELOPMENT
+	if (!ok)
+		xnd_error("%s failed\n", __func__);
+#endif
+
+	return ok;
 }
 
 static inline bool
 check_tsd_threadid_offset(void)
 {
-	u64 tid, kerntid;
+	u64 tsd_tid, pthread_tid, tid;
+	uintptr_t tsd, self;
+	bool ok;
 
-	tid = self_get_threadid();
-	kerntid = __thread_selfid();
-	if (tid != kerntid) {
-		xnd_error("threadid offset check failed:\n"
-			  " found tid: %llu, actual tid: %llu\n",
-			  tid, kerntid);
-		return false;
-	}
+	tsd = self_tsd_base();
+	self = (uintptr_t)pthread_self();
 
-	return true;
+	tid = __thread_selfid();
+	tsd_tid = *(u64 *)(tsd + TSD_THREADID_OFFSET);
+	pthread_tid = *(u64 *)(self + PTHREAD_THREADID_OFFSET);
+
+	ok = ((tsd_tid == tid) && (pthread_tid == tid));
+#if DEBUG || DEVELOPMENT
+	if (!ok)
+		xnd_error("%s failed\n", __func__);
+#endif
+
+	return ok;
+}
+
+static inline bool
+check_pthread_mutex_tid_offset(void)
+{
+	bool ok;
+	u64 tid, *tidaddr;
+	pthread_mutex_t mutex;
+
+	tid = __thread_selfid();
+	pthread_mutex_init(&mutex, NULL);
+	pthread_mutex_lock(&mutex);
+
+	tidaddr = (u64 *)((uintptr_t)&mutex + PTHREAD_MUTEX_TID_OFFSET);
+	ok = (*tidaddr == tid);
+
+	pthread_mutex_unlock(&mutex);
+	pthread_mutex_destroy(&mutex);
+
+	return ok;
 }
 
 bool
-validate_tsd_relative_offsets(void)
+do_tsd_runtime_checks(void)
 {
 	return (check_tsd_pthread_struct_offset() &&
-		check_tsd_threadid_offset());
+		check_tsd_threadid_offset() &&
+		check_pthread_mutex_tid_offset());
 }

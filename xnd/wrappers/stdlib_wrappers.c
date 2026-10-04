@@ -1,4 +1,5 @@
 /* stdlib_wrappers.c */
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -31,7 +32,8 @@ extern void (*__cleanup)(void);
  *    modifier = low48 | (high16 << 48)
  *    pacib __cleanup, modifier
  */
-static inline void ptrauth_check_cleanup_ptr(void)
+static inline void
+ptrauth_check_cleanup_ptr(void)
 {
 	u64 mod;
 
@@ -43,16 +45,19 @@ static inline void ptrauth_check_cleanup_ptr(void)
 	}
 }
 
-void __exit_hook(int status)
+void
+__exit_hook(int status)
 {
 	ptrauth_check_cleanup_ptr();
-        exit(status);
+	exit(status);
 }
 
-void __abort_hook(void)
+void
+__abort_hook(void)
 {
 	ptrauth_check_cleanup_ptr();
-        abort();
+	set_xnd_state(XND_ABORTING);
+	abort();
 }
 
 void *__calloc_hook(size_t count, size_t size)
@@ -71,14 +76,21 @@ void *__calloc_hook(size_t count, size_t size)
 
 void __free_hook(void *ptr)
 {
-        if (XND_SKIP_INTERPOSE()) {
-                free(ptr);
-                return;
-        }
+	if (XND_SKIP_INTERPOSE()) {
+		free(ptr);
+		return;
+	}
 
-        unsafe_enter();
-        free(ptr);
-        unsafe_exit();
+	/*
+	 * Don't waste time calling unsafe_(enter|exit) if there is
+	 * nothing to free.
+	 */
+	if (ptr == NULL)
+		return;
+
+	unsafe_enter();
+	free(ptr);
+	unsafe_exit();
 }
 
 void *__malloc_hook(size_t size)
@@ -137,18 +149,19 @@ void *__valloc_hook(size_t size)
         return retval;
 }
 
-void *__aligned_alloc_hook(size_t align, size_t size)
+void *
+__aligned_alloc_hook(size_t align, size_t size)
 {
-        void *retval;
+	void *ptr = NULL;
 
-        if (XND_SKIP_INTERPOSE())
-                return aligned_alloc(align, size);
+	if (XND_SKIP_INTERPOSE())
+		return aligned_alloc(align, size);
 
-        unsafe_enter();
-        retval = aligned_alloc(align, size);
-        unsafe_exit();
+	unsafe_enter();
+	ptr = aligned_alloc(align, size);
+	unsafe_exit();
 
-        return retval;
+	return ptr;
 }
 
 /**

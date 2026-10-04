@@ -11,9 +11,13 @@ enum xnd_state {
         XND_CKPT_PENDING,
         XND_SUSPINPROG,
         XND_CKPTINPROG,
+	XND_RESTARTING,
         XND_ATFORK,
-        XND_EXITING
+        XND_EXITING,
+	XND_ABORTING,
 };
+
+extern uint64_t xnd_epoch;
 
 enum xnd_state get_xnd_state(void);
 void set_xnd_state(enum xnd_state);

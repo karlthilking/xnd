@@ -1,48 +1,25 @@
 /* pthread_wrappers.c */
-#include "xnd/xnd.h"
-#include "xnd/thread_info.h"
-#include "xnd/pac.h"
-#include "xnd/tls.h"
-#include "xnd/interpose.h"
-#include "xnd/util/env.h"
-#include "pthread_wrappers.h"
-
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <assert.h>
 #include <time.h>
-#include <signal.h>
 
-static __always_inline pthread_t encode_pthread(struct thread_info *th)
-{
-	return (pthread_t)((uintptr_t)th | PTHREAD_MAGIC);
-}
-
-static __always_inline struct thread_info *decode_pthread(pthread_t p)
-{
-        return (struct thread_info *)((uintptr_t)p & ~PTHREAD_TAG_MASK);
-}
-
-static __always_inline bool validate_pthread(pthread_t p)
-{
-        return (PTHREAD_TAG_MASK & (uintptr_t)p) == PTHREAD_MAGIC;
-}
+#include "xnd/xnd.h"
+#include "common/time.h"
+#include "xnd/util/env.h"
+#include "xnd/thread_info.h"
+#include "xnd/tls.h"
+#include "xnd/interpose.h"
+#include "time_wrappers.h"
+#include "pthread_wrappers.h"
 
 int
-__pthread_create_hook(pthread_t *p, const pthread_attr_t *attr,
-		      void *(*start_routine)(void *), void *arg)
+pthread_create_hook(pthread_t *p, const pthread_attr_t *attr,
+	void *(*start_routine)(void *), void *arg)
 {
-	int err;
-	struct thread_info *t;
+	int err, detach, cancelstate;
+	struct thread_info *t = NULL;
 
-	/*
-	 * Return some reasonable error if we really failed to
-	 * allocate our internal thread descriptor or failed
-	 * to initialize locks/condition variables.
-	 */
 	unsafe_enter();
 	t = thread_init(start_routine, arg);
 	if (t == NULL) {
@@ -50,265 +27,245 @@ __pthread_create_hook(pthread_t *p, const pthread_attr_t *attr,
 		goto out;
 	}
 
+	if (attr != NULL) {
+		err = pthread_attr_getdetachstate(attr, &detach);
+		if (err != 0) {
+			err = EINVAL;
+			goto out;
+		}
+		t->ti_joinable = (detach == PTHREAD_CREATE_JOINABLE);
+	}
+
+	xpthread_mutex_lock(&t->ti_lock);
 	err = pthread_create(p, attr, thread_start, t);
-	if (err) {
-		free(t);
+	if (err != 0) {
+		xpthread_mutex_unlock(&t->ti_lock);
+		goto out;
+	}
+
+	/*
+	 * pthread_create() is not a cancellation point, but our hook
+	 * can be cancelled in pthread_cond_wait(). Temporarily
+	 * disable cancellation to ensure we are not cancelled while
+	 * synchronizing with the child thread.
+	 */
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancelstate);
+	while (t->ti_state == TS_EMBRYO)
+		xpthread_cond_wait(&t->ti_cond, &t->ti_lock);
+
+	xpthread_mutex_unlock(&t->ti_lock);
+	if (cancelstate != PTHREAD_CANCEL_DISABLE)
+		pthread_setcancelstate(cancelstate, NULL);
+
+out:
+	if (err != 0 && t != NULL)
+		thread_reap(t);
+
+	unsafe_exit();
+	return err;
+}
+
+/*
+ * pthread_joiner_cond_cleanup:
+ *  Cleanup function that runs if the joiner in pthread_join_hook() was
+ *  cancelled in pthread_cond_wait. Clear t->ti_joiner, release the
+ *  thread lock, and drop our reference to the thread (t->ti_refcnt).
+ */
+static void
+pthread_joiner_cond_cleanup(void *arg)
+{
+	struct thread_info *t, *self;
+
+	/*
+	 * Cleanup functions are called before tsd destructors execute,
+	 * so thread_self() should not return NULL.
+	 */
+	self = thread_self();
+	xnd_assert(self != NULL);
+
+	t = (struct thread_info *)arg;
+	xnd_assert(t->ti_joiner == self);
+
+	t->ti_joiner = NULL;
+	xpthread_mutex_unlock(&t->ti_lock);
+
+	xnd_atomic_dec_release(&t->ti_refcnt);
+}
+
+static void
+pthread_joiner_cleanup(void *arg)
+{
+	struct thread_info *t = (struct thread_info *)arg;
+
+	/*
+	 * We called unsafe_enter() before pthread_join(), and are
+	 * also still holding a reference to the target thread.
+	 * Call unsafe_exit() and drop our reference to reverse our
+	 * join state.
+	 */
+	unsafe_exit();
+	xnd_atomic_dec_release(&t->ti_refcnt);
+}
+
+static inline bool
+pthread_join_invalid(struct thread_info *t)
+{
+	bool ret, joinable;
+
+	/*
+	 * Thread is not joinable (detached with pthread_detach(), is
+	 * a workqueue thread, etc.), or already has a joiner.
+	 */
+	xpthread_mutex_lock(&t->ti_lock);
+	joinable = xnd_atomic_load(&t->ti_joinable, acquire);
+	ret = (!joinable || t->ti_joiner != NULL);
+	xpthread_mutex_unlock(&t->ti_lock);
+
+	return ret;
+}
+
+static inline bool
+pthread_join_deadlock(struct thread_info *t, struct thread_info *joiner)
+{
+	bool ret;
+
+	xpthread_mutex_lock(&joiner->ti_lock);
+	ret = (joiner->ti_joiner == t);
+	xpthread_mutex_unlock(&joiner->ti_lock);
+
+	return ret;
+}
+
+int
+pthread_join_hook(pthread_t p, void **value_ptr)
+{
+	int err;
+	struct thread_info *t, *self;
+	enum thread_state state;
+
+	self = thread_self();
+	xnd_assert(self != NULL);
+
+	t = thread_from_pthread_acquire_ref(p);
+	state = xnd_atomic_load(&t->ti_state, relaxed);
+
+	if (t == NULL || state == TS_RECLAIMED) {
+		err = ESRCH;
+		goto out;
+	}
+
+	if (t == self) {
+		err = EDEADLK;
+		goto out;
+	}
+
+	/*
+	 * Checks if the thread is not joinable, or if the thread
+	 * already has an active joiner.
+	 */
+	if (pthread_join_invalid(t)) {
+		err = EINVAL;
+		goto out;
+	}
+
+	/*
+	 * Checks if the target thread and the calling thread are
+	 * attempting to join each other.
+	 */
+	if (pthread_join_deadlock(t, self)) {
+		err = EDEADLK;
 		goto out;
 	}
 
 	xpthread_mutex_lock(&t->ti_lock);
-	while (t->ti_state == TS_EMBRYO) {
+	t->ti_joiner = self;
+	while (t->ti_state != TS_ZOMBIE) {
+		/*
+		 * pthread_joiner_cond_cleanup will clear t->ti_joiner,
+		 * release t->ti_lock, and drop our reference to the
+		 * thread if we are cancelled in pthread_cond_wait.
+		 */
+		pthread_cleanup_push(pthread_joiner_cond_cleanup, t);
 		xpthread_cond_wait(&t->ti_cond, &t->ti_lock);
+		pthread_cleanup_pop(0);
+
+		/*
+		 * If t->ti_joinable changes from true to false while
+		 * we were waiting, the thread was detached via
+		 * pthread_detach().
+		 */
+		if (!t->ti_joinable) {
+			t->ti_joiner = NULL;
+			xpthread_mutex_unlock(&t->ti_lock);
+			err = EINVAL;
+			goto out;
+		}
 	}
+	t->ti_joiner = NULL;
 	xpthread_mutex_unlock(&t->ti_lock);
 
-	/*
-	 * Manipulate pthread descriptor to point to our internal
-	 * thread descriptor with a magic value in the high bits
-	 * for identification.
-	 */
-	*p = encode_pthread(t);
+	unsafe_enter();
+	pthread_cleanup_push(pthread_joiner_cleanup, t);
+	err = pthread_join(t->ti_self, value_ptr);
+	pthread_cleanup_pop(0);
+	unsafe_exit();
+
+	if (err == 0)
+		xnd_atomic_store(&t->ti_state, TS_RECLAIMED, relaxed);
 
 out:
-	unsafe_exit();
+	xnd_atomic_dec_release(&t->ti_refcnt);
 	return err;
 }
 
 int
-__pthread_join_hook(pthread_t p, void **value_ptr)
+pthread_detach_hook(pthread_t p)
 {
 	int err;
+	bool wake = false;
 	struct thread_info *t;
 
-	if (!validate_pthread(p))
+	t = thread_from_pthread_acquire_ref(p);
+	if (t == NULL)
 		return ESRCH;
 
-	/*
-	 * If the calling thread is trying to join themselves, handle
-	 * the error independently so we don't deadlock ourselves.
-	 */
-	t = decode_pthread(p);
-	if (t == thread_self_or_null())
-		return EDEADLK;
-
-	xpthread_mutex_lock(&t->ti_lock);
-	while (!t->ti_exiting)
-		xpthread_cond_wait(&t->ti_cond, &t->ti_lock);
-	xpthread_mutex_unlock(&t->ti_lock);
-
-	/*
-	 * Now that we know the thread is really exiting, we can
-	 * make this join a fast, atomic operation.
-	 *
-	 * Only mark the thread as joined if pthread_join really
-	 * succeeds. Otherwise, we might free the thread descriptor
-	 * while the thread is still alive.
-	 */
 	unsafe_enter();
-	err = pthread_join(t->ti_self, value_ptr);
-	t->ti_joined = (err == 0);
+	err = pthread_detach(p);
+	if (err == 0) {
+		wake = true;
+		xnd_atomic_store(&t->ti_joinable, false, release);
+	}
 	unsafe_exit();
 
+	if (wake) {
+		xpthread_mutex_lock(&t->ti_lock);
+		if (t->ti_joiner != NULL)
+			xpthread_cond_signal(&t->ti_cond);
+		xpthread_mutex_unlock(&t->ti_lock);
+	}
+
+	xnd_atomic_dec_release(&t->ti_refcnt);
 	return err;
 }
 
-void __pthread_exit_hook(void *value_ptr)
-{
-        thread_exit(value_ptr);
-}
-
-pthread_t __pthread_self_hook(void)
-{
-	uintptr_t p;
-	struct thread_info *self;
-
-	if (!xnd_tlv_ok()) {
-		p = get_tls_slot(__TSD_THREAD_SELF);
-		return (pthread_t)p;
-	}
-
-	self = thread_self_or_null();
-	if (self == NULL)
-		xnd_panic("Thread descriptor is NULL\n");
-
-	return encode_pthread(self);
-}
-
-int __pthread_equal_hook(pthread_t p1, pthread_t p2)
-{
-        if (!validate_pthread(p1) || !validate_pthread(p2)) {
-                return 0;
-        }
-
-        return (uintptr_t)p1 == (uintptr_t)p2;
-}
-
 int
-__pthread_kill_hook(pthread_t p, int sig)
+pthread_kill_hook(pthread_t p, int sig)
 {
-	int err, ckptsig;
-	struct thread_info *t;
+	int err, ckptsig = env_get_ckpt_signal();
 
-	if (!validate_pthread(p))
-		return ESRCH;
-
-	ckptsig = env_get_ckpt_signal();
 	if (sig == ckptsig) {
 		xnd_warn("signal is reserved: %s\n", strsignal(ckptsig));
 		return EINVAL;
 	}
 
-	t = decode_pthread(p);
 	unsafe_enter();
-	err = pthread_kill(t->ti_self, sig);
+	err = pthread_kill(p, sig);
 	unsafe_exit();
 
 	return err;
 }
 
-int __pthread_detach_hook(pthread_t p)
-{
-	int err;
-	struct thread_info *t;
-
-	if (!validate_pthread(p))
-		return ESRCH;
-
-	t = decode_pthread(p);
-	unsafe_enter();
-	err = pthread_detach(t->ti_self);
-	unsafe_exit();
-
-	return err;
-}
-
-int
-__pthread_setschedparam_hook(pthread_t p, int policy,
-                             const struct sched_param *param)
-{
-	int err;
-	struct thread_info *t;
-
-        if (!validate_pthread(p))
-                return ESRCH;
-
-        t = decode_pthread(p);
-        unsafe_enter();
-        err = pthread_setschedparam(t->ti_self, policy, param);
-        unsafe_exit();
-
-        return err;
-}
-
-int
-__pthread_getschedparam_hook(pthread_t p, int *policy,
-                             struct sched_param *param)
-{
-	int err;
-	struct thread_info *t;
-
-        if (!validate_pthread(p))
-                return ESRCH;
-
-        t = decode_pthread(p);
-        unsafe_enter();
-        err = pthread_getschedparam(t->ti_self, policy, param);
-        unsafe_exit();
-
-        return err;
-}
-
-void *
-__pthread_get_stackaddr_np_hook(pthread_t p)
-{
-	void *stackaddr;
-	struct thread_info *t;
-
-	if (!validate_pthread(p))
-		return (void *)(uintptr_t)ESRCH;
-
-	t = decode_pthread(p);
-	if (t == thread_self_or_null() || t == main_thread())
-		return pthread_get_stackaddr_np(t->ti_self);
-
-	unsafe_enter();
-	stackaddr = pthread_get_stackaddr_np(t->ti_self);
-	unsafe_exit();
-
-	return stackaddr;
-}
-
-size_t
-__pthread_get_stacksize_np_hook(pthread_t p)
-{
-	size_t stacksize;
-	struct thread_info *t;
-
-	if (!validate_pthread(p))
-		return (size_t)ESRCH;
-
-	t = decode_pthread(p);
-	if (t == thread_self_or_null() || t == main_thread())
-		/*
-		 * libpthread's thread list lock is not acquired
-		 * if the calling thread is inquiring about its
-		 * own stack
-		 */
-		return pthread_get_stacksize_np(t->ti_self);
-
-        unsafe_enter();
-        stacksize = pthread_get_stacksize_np(t->ti_self);
-        unsafe_exit();
-
-        return stacksize;
-}
-
-int __pthread_cancel_hook(pthread_t p)
-{
-	int err;
-	struct thread_info *t;
-
-        if (!validate_pthread(p))
-                return ESRCH;
-
-        t = decode_pthread(p);
-        unsafe_enter();
-        err = pthread_cancel(t->ti_self);
-        unsafe_exit();
-
-        return err;
-}
-
-/*
- * __pthread_main_thread_np_hook:
- *  Return encoded pointer to main thread's thread descriptor. Calling
- *  main_thread() ensures we return the real main thread and not the
- *  checkpoint thread, as the checkpoint thread will become the main
- *  thread after restart.
- */
-pthread_t
-__pthread_main_thread_np_hook(void)
-{
-        return encode_pthread(main_thread());
-}
-
-int
-__pthread_main_np_hook(void)
-{
-	return pthread_self() == main_thread()->ti_self;
-}
-
-INTERPOSE(__pthread_create_hook, pthread_create);
-INTERPOSE(__pthread_join_hook, pthread_join);
-INTERPOSE(__pthread_exit_hook, pthread_exit);
-INTERPOSE(__pthread_self_hook, pthread_self);
-INTERPOSE(__pthread_equal_hook, pthread_equal);
-INTERPOSE(__pthread_kill_hook, pthread_kill);
-INTERPOSE(__pthread_detach_hook, pthread_detach);
-INTERPOSE(__pthread_setschedparam_hook, pthread_setschedparam);
-INTERPOSE(__pthread_getschedparam_hook, pthread_getschedparam);
-INTERPOSE(__pthread_get_stackaddr_np_hook, pthread_get_stackaddr_np);
-INTERPOSE(__pthread_get_stacksize_np_hook, pthread_get_stacksize_np);
-INTERPOSE(__pthread_cancel_hook, pthread_cancel);
-INTERPOSE(__pthread_main_thread_np_hook, pthread_main_thread_np);
-INTERPOSE(__pthread_main_np_hook, pthread_main_np);
+INTERPOSE(pthread_create_hook, pthread_create);
+INTERPOSE(pthread_join_hook, pthread_join);
+INTERPOSE(pthread_detach_hook, pthread_detach);
+INTERPOSE(pthread_kill_hook, pthread_kill);

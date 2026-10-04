@@ -13,5 +13,6 @@
 #include "common/bits.h"
 #include "common/xalloc.h"
 #include "common/xthread.h"
+#include "common/atomic.h"
 
 #endif /* XND_H */

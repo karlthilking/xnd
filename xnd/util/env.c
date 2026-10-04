@@ -144,7 +144,7 @@ env_get_ckpt_signal(void)
 	char *val;
 	static int ckptsig = -1;
 
-	if (unlikely(ckptsig == -1)) {
+	if (__xnd_unlikely(ckptsig == -1)) {
 		ckptsig = XND_DEFAULT_CKPT_SIGNAL;
 		val = getenv(XND_CKPT_SIGNAL_ENV);
 		if (val != NULL)

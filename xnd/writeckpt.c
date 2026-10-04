@@ -15,8 +15,8 @@
 #include <string.h>
 #include <errno.h>
 
-extern u64 epoch;
-extern u32 xnd_pid;
+extern uint64_t xnd_epoch;
+extern uint32_t xnd_pid;
 
 static inline int write_vm_page(int fd, struct xnd_vm_region *region,
                                 struct xnd_vm_page *page)
@@ -242,7 +242,7 @@ int write_ckpt(struct xnd_ckpt_header *header,
 
         use_zlib = env_use_zlib_compression();
         xnd_ckptfile_name(ckptfile, sizeof(ckptfile), xnd_pid);
-        dirfd = xnd_ckptdir_open(header->xnd_uuid, epoch);
+        dirfd = xnd_ckptdir_open(header->xnd_uuid, xnd_epoch);
         if (dirfd < 0) {
                 xnd_error("Failed to open checkpoint directory\n");
                 goto bad;

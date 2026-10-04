@@ -30,13 +30,17 @@ extern void _thread_set_tsd_base(void *);
 #define __TSD_MACH_SPECIAL_REPLY_TYPE   mach_port_t
 #define __TSD_SEMAPHORE_CACHE_TYPE      semaphore_t
 
+#define tsd_getspecific(slot) \
+	(*tsd_slot_access(slot##_TYPE, slot))
+#define tsd_setspecific(slot, val) \
+	(*tsd_slot_access(slot##_TYPE, slot) = (val))
+
 /*
- * FIXME:
- *  This slot is not currently used by libpthread/libsystem, but would
- *  cause a hard to find bug if ever repurposed for other usage.
+ * Magic number for xnd_tlv_(init|ok). If the magic number is set for
+ * the tsd slot associated with tlv_flag_key (defined in thread_info.c),
+ * then myself/thread_self() has been initialized.
  */
-#define __TSD_XND_FLAG 6
-#define __TSD_XND_INIT 0x0000000005203090ULL
+#define XND_TLV_INIT ((void *)0x0000000005203090ULL)
 
 #define PTHREAD_TSD_OFFSET ((intptr_t)224)
 #define PTHREAD_THREADID_OFFSET ((intptr_t)216)
@@ -55,12 +59,14 @@ assert_pthread_offset(pthread, __cleanup_stack, CLEANUP_HANDLER);
 #define POSIX_THREAD_KEYS_END \
 	(EXTERNAL_POSIX_THREAD_KEYS_MAX + INTERNAL_POSIX_THREAD_KEYS_MAX)
 
+#define PTHREAD_MUTEX_TID_OFFSET 24
+
 static inline uintptr_t
 self_tsd_base(void)
 {
 	uintptr_t tsd;
 	asm volatile("mrs %0, tpidrro_el0" : "=r" (tsd) :: "memory");
-	return tsd;
+	return (tsd & ~7ull);
 }
 
 static inline uintptr_t
@@ -111,13 +117,6 @@ self_set_cleanup_stack(struct __darwin_pthread_handler_rec *handler)
 	*self_cleanup_stack_addr() = handler;
 }
 
-static inline bool
-xnd_tlv_ok(void)
-{
-	u64 flag = *tsd_slot_access(u64, __TSD_XND_FLAG);
-	return (flag == __TSD_XND_INIT);
-}
-
 /*
  * Posix thread keys:
  *  [0,     9] libsyscall/libplatorm
@@ -157,13 +156,14 @@ xnd_tsd_copy(void **dst, void **src)
 extern "C" {
 #endif
 
-int thread_ptr_munge_save(void);
-void thread_ptr_munge_fixup(void);
+void pthread_ptr_munge_save(void);
+void pthread_ptr_munge_restore(void);
 
 void xnd_tlv_init(void);
 void xnd_tlv_fini(void);
+bool xnd_tlv_ok(void);
 
-bool validate_tsd_relative_offsets(void);
+bool do_tsd_runtime_checks(void);
 
 #ifdef __cplusplus
 }

@@ -503,6 +503,7 @@ static int macho_print_opcodes(struct macho_all_info *info, int which)
                         printf("%s0x%llx %s: 0x%llx\n",
                                indent, opcode_offset,
                                bind_opcode_str[op], skip);
+			break;
                 case BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED:
                         skip = imm * sizeof(void *) + sizeof(void *);
                         printf("%s0x%llx %s: 0x%llx\n",

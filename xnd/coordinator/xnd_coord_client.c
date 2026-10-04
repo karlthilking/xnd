@@ -1,5 +1,6 @@
 /* xnd_coord_client.c */
 #include "xnd/xnd.h"
+#include "xnd/xnd_lib.h"
 #include "xnd/util/fd.h"
 #include "xnd/util/env.h"
 #include "xnd/pid/pid.h"
@@ -27,7 +28,6 @@ extern u32 xnd_ppid;
 extern u32 xnd_pgid;
 extern uuid_t xnd_uuid;
 
-extern u64 epoch;
 extern u32 num_peers;
 extern bool is_root_of_tree;
 
@@ -60,7 +60,7 @@ void send_recv_coord_handshake(enum xnd_msghdr hdr)
                 uuid_copy(msg.xnd_uuid, xnd_uuid);
 
                 msg.ckpt_interval = env_get_ckpt_interval();
-                msg.epoch = epoch;
+                msg.epoch = xnd_epoch;
                 msg.num_peers = num_peers;
         }
 
@@ -184,10 +184,9 @@ disconnect_from_coord(void)
 		xnd_warn("failed to send XND_EXIT to coordinator\n");
 
 	xnd_assert(shutdown(coord_fd, SHUT_RDWR) == 0);
-	fd = coord_fd;
-	__atomic_store_n(&coord_fd, -1, __ATOMIC_RELEASE);
+	fd = xnd_atomic_xchg(&coord_fd, -1, release);
 	if (close(fd) != 0)
-		xnd_perror("close");
+		xnd_perror("close(coord_fd)");
 
 	xpthread_mutex_lock(&oob_mutex);
 	if (oob_fd != OOB_FD_NULL && oob_fd != OOB_FD_FREE) {
@@ -347,7 +346,7 @@ wait_for_ckpt_request_from_coord(bool *exited)
 	do {
 		ret = recv_msg_from_coord(coord_fd, &msg);
 		if (ret != 0) {
-			fd = __atomic_load_n(&coord_fd, __ATOMIC_ACQUIRE);
+			fd = xnd_atomic_load(&coord_fd, acquire);
 			if ((fd == -1) || (fd > 0 && peer_exited(fd)))
 				did_exit = true;
 			break;

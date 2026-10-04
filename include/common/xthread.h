@@ -20,7 +20,7 @@
 #define xthread(op, ...)						\
 	do {								\
 		int __err = CONCAT(pthread_, op)(__VA_ARGS__);		\
-		if (unlikely(__err != 0))				\
+		if (__xnd_unlikely(__err != 0))				\
 			xthread_die("%s: %s\n",				\
 				    TOSTRING(op), strerror(__err));	\
 	} while (0)
@@ -49,6 +49,13 @@
 	xthread(cond_signal, cond)
 #define xpthread_cond_broadcast(cond) \
 	xthread(cond_broadcast, cond)
+#define xpthread_cond_signal_thread_np(cond, thread) \
+	xthread(cond_signal_thread_np, cond, thread)
+
+#define xpthread_setcancelstate(state, ostate) \
+	xthread(setcancelstate, state, ostate)
+#define xpthread_setcanceltype(type, otype) \
+	xthread(setcanceltype, type, otype)
 
 #define xpthread_attr_init(attr) \
 	xthread(attr_init, attr)
@@ -70,10 +77,30 @@
 	xthread(attr_setguardsize, attr, guardsize)
 #define xpthread_attr_getguardsize(attr, guardsize) \
 	xthread(attr_setguardsize, attr, guardsize)
+#define xpthread_attr_setdetachstate(attr, state) \
+	xthread(attr_setdetachstate, attr, state)
 
 #define xpthread_kill(thread, sig) \
 	xthread(kill, thread, sig)
 #define xpthread_sigmask(how, set, oset) \
 	xthread(sigmask, how, set, oset)
 
-#endif /* XND_THREAD_H */
+#define xpthread_key_create(key, destructor) \
+	xthread(key_create, key, destructor)
+#define xpthread_key_delete(key) \
+	xthread(key_delete, key)
+#define xpthread_setspecific(key, value) \
+	xthread(setspecific, key, value)
+
+#define xpthread_rwlock_init(rwlock, attr) \
+	xthread(rwlock_init, rwlock, attr)
+#define xpthread_rwlock_destroy(rwlock) \
+	xthread(rwlock_destroy, rwlock)
+#define xpthread_rwlock_rdlock(rwlock) \
+	xthread(rwlock_rdlock, rwlock)
+#define xpthread_rwlock_wrlock(rwlock) \
+	xthread(rwlock_wrlock, rwlock)
+#define xpthread_rwlock_unlock(rwlock) \
+	xthread(rwlock_unlock, rwlock)
+
+#endif /* XND_XTHREAD_H */

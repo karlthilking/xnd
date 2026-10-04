@@ -13,32 +13,37 @@
 #define SA_VALIDATE_SIGRETURN_FROM_SIGTRAMP 0x0400
 
 #define SIGTERMSET (sigmask(SIGINT) | sigmask(SIGTERM) | sigmask(SIGQUIT))
-#define SIGCANTSET (sigmask(SIGKILL) | sigmask(SIGKILL))
+#define SIGCANTSET (sigmask(SIGKILL) | sigmask(SIGSTOP))
 
-#define sigandset(ret, s1, s2)				\
-	do {						\
-		sigset_t __ret;				\
-		sigemptyset(&__ret);			\
-		for (int sig = 1; sig < NSIG; sig++) {	\
-			if (sigismember(s1, sig) &&	\
-			    sigismember(s2, sig))	\
-				sigaddset(&__ret, sig); \
-		}					\
-		*(ret) = __ret;				\
-	} while (0)
+#define sigisemptyset(set) (*(set) == (sigset_t)0)
 
-#define sigsetequal(s1, s2)			       \
-	({					       \
-		bool __eq = true;		       \
-		for (int sig = 1; sig < NSIG; sig++) { \
-			if (sigismember(s1, sig) !=    \
-			    sigismember(s2, sig)) {    \
-				__eq = false;	       \
-				break;		       \
-			}			       \
-		}				       \
-		__eq;				       \
+#define valid_signal(sig)			\
+	({					\
+		int __sig = (sig);		\
+		__sig > 0 && sig < NSIG;	\
 	})
+
+static inline void
+sigandset(sigset_t *set, const sigset_t *left, const sigset_t *right)
+{
+	int sig;
+
+	for (sig = 1; sig < NSIG; sig++) {
+		if (sigismember(left, sig) && sigismember(right, sig))
+			sigaddset(set, sig);
+	}
+}
+
+static inline void
+sigorset(sigset_t *set, const sigset_t *left, const sigset_t *right)
+{
+	int sig;
+
+	for (sig = 1; sig < NSIG; sig++) {
+		if (sigismember(left, sig) || sigismember(right, sig))
+			sigaddset(set, sig);
+	}
+}
 
 int xnd_sigaction(int, const struct sigaction *, struct sigaction *);
 

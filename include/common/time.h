@@ -56,6 +56,24 @@
 #define TIMESPEC_NSEC_DIFF(end, begin) \
 	(TIMESPEC_TO_NSEC(end) - TIMESPEC_TO_NSEC(begin))
 
+#define TIMESPEC_ADD_NSEC(tsp, nsec)				\
+	do {							\
+		(tsp)->tv_sec += ((nsec) / NSEC_PER_SEC);	\
+		(tsp)->tv_nsec += ((nsec) % NSEC_PER_SEC);	\
+	} while (0)
+
+#define TIMESPEC_ADD_USEC(tsp, usec)			\
+	do {						\
+		long __nsec = (usec) * NSEC_PER_USEC;	\
+		TIMESPEC_ADD_NSEC(tsp, __nsec);		\
+	} while (0)
+
+#define TIMESPEC_ADD_MSEC(tsp, msec)			\
+	do {						\
+		long __nsec = (msec) * NSEC_PER_MSEC;	\
+		TIMESPEC_ADD_NSEC(tsp, __nsec);		\
+	} while (0)
+
 #ifndef TIMESPEC_TO_TIMEVAL
 # define TIMESPEC_TO_TIMEVAL(tsp, tvp)				   \
 	do {							   \

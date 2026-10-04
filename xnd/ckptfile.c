@@ -111,13 +111,13 @@ int xnd_ckptdir_unlink(const uuid_t uuid, u64 epoch)
 
         xnd_ckptdir_name(base, sub, uuid, epoch);
         err = xnd_path_join(path, sizeof(path), base, sub);
-        if (unlikely(err != 0)) {
+        if (__xnd_unlikely(err != 0)) {
                 xnd_error("xnd_path_join failed: %s/%s\n", base, sub);
                 return -1;
         }
 
         dirp = opendir(path);
-        if (unlikely(dirp == NULL)) {
+        if (__xnd_unlikely(dirp == NULL)) {
                 xnd_error("opendir(%s): %s\n", path, strerror(errno));
                 return -1;
         }
@@ -127,7 +127,7 @@ int xnd_ckptdir_unlink(const uuid_t uuid, u64 epoch)
                     strcmp(ent->d_name, "..") == 0)
                         continue;
                 snprintf(buf, sizeof(buf), "%s/%s", path, ent->d_name);
-                if (unlikely(unlink(buf) != 0)) {
+                if (__xnd_unlikely(unlink(buf) != 0)) {
                         xnd_error("unlink(%s): %s\n", buf, strerror(errno));
                         return -1;
                 }
@@ -135,13 +135,13 @@ int xnd_ckptdir_unlink(const uuid_t uuid, u64 epoch)
 
         closedir(dirp);
         dirfd = open(base, O_DIRECTORY | O_RDONLY);
-        if (unlikely(dirfd < 0)) {
+        if (__xnd_unlikely(dirfd < 0)) {
                 xnd_error("open(%s): %s\n", path, strerror(errno));
                 return -1;
         }
 
         err = unlinkat(dirfd, sub, AT_REMOVEDIR);
-        if (unlikely(err != 0)) {
+        if (__xnd_unlikely(err != 0)) {
                 xnd_error("unlinkat(%s): %s\n", sub, strerror(errno));
                 return -1;
         }
@@ -310,7 +310,7 @@ int xnd_ckptfile_extract_manifest(const char *path,
         int     fd = -1;
 
         fd = open(path, O_RDONLY);
-        if (unlikely(fd < 0)) {
+        if (__xnd_unlikely(fd < 0)) {
                 xnd_error("open(%s): %s\n", path, strerror(errno));
                 goto fail;
         }

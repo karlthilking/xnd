@@ -68,7 +68,7 @@ out:
 
 pid_t __getpid_hook(void)
 {
-	if (unlikely(_virt_pid == -1))
+	if (__xnd_unlikely(_virt_pid == -1))
 		return _real_getpid();
 
 	return _virt_pid;
@@ -76,7 +76,7 @@ pid_t __getpid_hook(void)
 
 pid_t __getppid_hook(void)
 {
-	if (unlikely(_virt_ppid == -1))
+	if (__xnd_unlikely(_virt_ppid == -1))
 		return _real_getppid();
 
 	return _virt_ppid;
@@ -253,7 +253,7 @@ int __kill_hook(pid_t pid, int sig)
         int     retval;
         pid_t   real_pid;
 
-        if (unlikely(sig == env_get_ckpt_signal())) {
+        if (__xnd_unlikely(sig == env_get_ckpt_signal())) {
                 xnd_warn("Signal %d is reserved\n", sig);
                 return -1;
         }

@@ -20,3 +20,4 @@ test/bin/
 test/inputs/
 __pycache__/
 benchmarks/
+bin/

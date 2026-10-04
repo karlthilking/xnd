@@ -90,15 +90,21 @@
 #define STRINGIFY(s) 	__STRINGIFY (s)
 #define TOSTRING(s)	__STRINGIFY (s)
 
+/*
+ * Always xnd-owned: never aliased to a `likely`/`unlikely` that a
+ * vendored header may already have defined (macos/libdispatch defines
+ * its own, and its non-GNUC fallback is a no-op).  Prefer these in xnd
+ * code; the unprefixed names below are compatibility only.
+ */
+#define __xnd_likely(x) 	__builtin_expect (!!(x), 1)
+#define __xnd_unlikely(x) 	__builtin_expect (!!(x), 0)
+
 #ifndef likely
-# define likely(x) 	__builtin_expect (!!(x), 1)
+# define likely(x) 	__xnd_likely (x)
 #endif
 #ifndef unlikely
-# define unlikely(x) 	__builtin_expect (!!(x), 0)
+# define unlikely(x) 	__xnd_unlikely (x)
 #endif
-
-#define __xnd_likely	likely
-#define __xnd_unlikely	unlikely
 
 #define READ_ONCE(var) \
 	(*((volatile typeof(var) *)(&(var))))
@@ -234,5 +240,8 @@ xnd_warn_unused (const bool x)
 #else
 # define __optimize(level)
 #endif
+
+#define __attribute_nonnull__(...) \
+  __attribute__ ((__nonnull__ (__VA_ARGS__)))
 
 #endif /* XND_COMPILER_H */

@@ -83,6 +83,12 @@ CONFIG = {
             "-in", str(OPENSSL_INPUT), "-out", "/dev/null",
         ],
     },
+    "swift-await": {
+        "name": "Swift Await",
+        "path": str(BIN / "06-swift-await"),
+        "input": None,
+        "args": [],
+    },
 }
 
 def display():

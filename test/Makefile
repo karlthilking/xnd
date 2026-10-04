@@ -1,14 +1,29 @@
-CC		:= clang
-CXX		:= clang++
-CFLAGS		:= -Wall -g -O2 -arch arm64
-CXXFLAGS	:= -std=c++20 -Wall -g -O2 -arch arm64
-BUILD		:= bin
+XND_ROOT = ..
+BUILD = bin
+
+CC = clang
+CFLAGS = -Wall -g -O2 -arch arm64 -iquote $(XND_ROOT) \
+	 -iquote $(XND_ROOT)/include
+
+CXX = clang++
+CXXFLAGS = -std=c++20 -Wall -g -O2 -arch arm64 -iquote $(XND_ROOT) \
+	   -iquote $(XND_ROOT)/include
+
+SWIFTC = swiftc
+SWIFTFLAGS = -g -Onone
 
 TESTS := \
 	01_conjugate_gradient \
 	02_heat_diffusion \
 	03_nbody \
-	04_jacobi
+	04_jacobi \
+	06-swift-await \
+	07-swift-task-sleep \
+	08-dispatch \
+
+XND_ROOT = ..
+override CFLAGS += -iquote $(XND_ROOT)
+override CFLAGS += -iquote $(XND_ROOT)/include
 
 ALL := $(addprefix $(BUILD)/,$(TESTS))
 
@@ -30,6 +45,9 @@ $(BUILD)/%: %.c | $(BUILD)
 
 $(BUILD)/%: %.cpp | $(BUILD)
 	$(CXX) $(CXXFLAGS) -o $@ $<
+
+$(BUILD)/%: %.swift | $(BUILD)
+	$(SWIFTC) $(SWIFTFLAGS) -o $@ $<
 
 clean:
 	rm -f $(ALL)
