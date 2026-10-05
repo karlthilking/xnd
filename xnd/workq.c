@@ -21,11 +21,18 @@ static void workq_thread_restore (void) __noreturn;
 extern pthread_key_t thread_self_key;
 extern struct thread_list thread_list;
 
-struct workqueue workq = {
-  .wq_cfg = { 0 },
-  .wq_rwlock = PTHREAD_RWLOCK_INITIALIZER,
-  .wq_flags = 0,
-};
+struct workqueue workq =
+  {
+    .wq_cfg =
+    {
+      .wdc_version = WORKQ_DISPATCH_CONFIG_VERSION,
+      .wdc_flags = 0,
+      .wdc_queue_serialno_offs = 0,
+      .wdc_queue_label_offs = 0,
+    },
+    .wq_rwlock = PTHREAD_RWLOCK_INITIALIZER,
+    .wq_flags = 0,
+  };
 
 void
 workq_lck_wrlock (void)
@@ -184,7 +191,7 @@ workq_setup_callback (const struct pthread_workqueue_config *cfg)
   mask = sigmask (env_get_ckpt_signal ());
   ret = __bsdthread_ctl (BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK, mask, 0, 0);
   if (ret != 0)
-    xnd_panic ("__bsdthread_ctl: %s\n", strerror (ret));
+    xnd_panic ("__bsdthread_ctl: %s\n", strerror (errno));
 
   workq.wq_flags |= WQ_SETUP;
 }

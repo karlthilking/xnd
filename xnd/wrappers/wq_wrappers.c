@@ -64,23 +64,28 @@ static WORKQ_CB (libdispatch_workq_cb);
 static KEVENT_CB (libdispatch_kevent_cb);
 static WORKLOOP_CB (libdispatch_workloop_cb);
 
-static void workq_tramp WORKQ_CB_ARGS
+/* clang-format off */
+static void
+workq_tramp WORKQ_CB_ARGS
 {
   workq_thread_prepare ();
   (*libdispatch_workq_cb) (arg1);
 }
 
-static void kevent_tramp KEVENT_CB_ARGS
+static void
+kevent_tramp KEVENT_CB_ARGS
 {
   workq_thread_prepare ();
   (*libdispatch_kevent_cb) (arg1, arg2);
 }
 
-static void workloop_tramp WORKLOOP_CB_ARGS
+static void
+workloop_tramp WORKLOOP_CB_ARGS
 {
   workq_thread_prepare ();
   (*libdispatch_workloop_cb) (arg1, arg2, arg3);
 }
+/* clang-format on */
 
 static int
 pthread_workqueue_setup_hook (struct pthread_workqueue_config *cfg,

@@ -94,13 +94,13 @@ typedef unsigned long pthread_priority_t;
 #define PTHREAD_WORKQUEUE_CONFIG_SUPPORTED_FLAGS       0
 struct pthread_workqueue_config
 {
-  u32 flags;
-  u32 version;
+  uint32_t flags;
+  uint32_t version;
   void (*kevent_cb) (void **events, int *nevents);
-  void (*workloop_cb) (u64 *id, void **events, int *nevents);
+  void (*workloop_cb) (uint64_t *id, void **events, int *nevents);
   void (*workq_cb) (ulong arg);
-  u64 queue_serialno_offs;
-  u64 queue_label_offs;
+  uint64_t queue_serialno_offs;
+  uint64_t queue_label_offs;
 };
 
 /*
