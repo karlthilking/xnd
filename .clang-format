@@ -34,6 +34,14 @@ BreakBeforeBraces:                    GNU
 AlwaysBreakAfterReturnType:           AllDefinitions
 PointerAlignment:                     Right
 
+# Braced initializers keep GNU's block form: a brace written on its own
+# line after `=' is preserved, as in the `workq' definition in
+# xnd/workq.c.  The cost is that short lists read `= { 0 }' rather than
+# `= {0}' -- the two are not separable, since `true' is the only lever
+# for the inner spacing and it rewrites the block form into a hanging
+# `= {'.  Pinned explicitly so a change to the GNU preset cannot flip it.
+Cpp11BracedListStyle:                 false
+
 # Space after type cast and space before function call parens
 SpaceAfterCStyleCast:                 true
 SpaceBeforeParens:                    Always
