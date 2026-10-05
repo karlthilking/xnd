@@ -102,8 +102,8 @@
 # define unlikely(x) __xnd_unlikely (x)
 #endif
 
-#define READ_ONCE(var)       (*((volatile typeof (var) *) (&(var))))
-#define WRITE_ONCE(var, val) (*((volatile typeof (var) *) (&(var))) = (val))
+#define READ_ONCE(var)       (*((volatile __typeof__ (var) *) &(var)))
+#define WRITE_ONCE(var, val) (*((volatile __typeof__ (var) *) &(var)) = (val))
 
 #ifndef barrier
 # define barrier() __asm__ __volatile__ ("" ::: "memory")
