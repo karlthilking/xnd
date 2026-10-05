@@ -8,20 +8,20 @@
 #include <pthread/qos.h>
 
 #if DEVLOPMENT || DEBUG
-#define trace_workq_kernreturn(op, arg2, arg3, arg4)                 \
-  printf ("__workq_kernreturn (op=%s, arg2=%p, arg3=%d, arg4=%d)\n", \
-          wqops_string (op), (arg2), (arg3), (arg4))
-#define trace_pthread_workqueue_setup(cfg)                            \
-  ({                                                                  \
+# define trace_workq_kernreturn(op, arg2, arg3, arg4)                 \
+   printf ("__workq_kernreturn (op=%s, arg2=%p, arg3=%d, arg4=%d)\n", \
+           wqops_string (op), (arg2), (arg3), (arg4))
+# define trace_pthread_workqueue_setup(cfg)                           \
+   ({                                                                 \
     struct pthread_workqueue_config *__cfg = (cfg);                   \
     printf ("pthread_workqueue_setup (version=%d, flags=%d, "         \
             "queue_serialno_offs=%llu, queue_label_offs=%llu\n",      \
             __cfg->version, __cfg->flags, __cfg->queue_serialno_offs, \
             __cfg->queue_label_offs);                                 \
-  })
+   })
 #else
-#define trace_workq_kernreturn(op, arg2, arg3, arg4) ((void)0)
-#define trace_pthread_workqueue_setup(cfg)           ((void)0)
+# define trace_workq_kernreturn(op, arg2, arg3, arg4) ((void) 0)
+# define trace_pthread_workqueue_setup(cfg)           ((void) 0)
 #endif
 
 #define WORKQ_CB_ARGS    (pthread_priority_t arg1)

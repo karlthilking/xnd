@@ -51,7 +51,7 @@
   })
 
 #define xposix_memalign(ptr, align, size)                \
-  ((void)({                                              \
+  ((void) ({                                             \
     void **__ptr = (ptr);                                \
     size_t __align = (align), __size = (size);           \
     int __err = posix_memalign (__ptr, __align, __size); \

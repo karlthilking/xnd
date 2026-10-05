@@ -199,9 +199,7 @@ __wait4_hook (pid_t pid, int *status, int options, struct rusage *ru)
 
   sv_errno = errno;
   if (!status)
-    {
-      status = &stat;
-    }
+    status = &stat;
 
   for (;;)
     {
@@ -253,9 +251,7 @@ __wait4_hook (pid_t pid, int *status, int options, struct rusage *ru)
 
       unsafe_exit ();
       if ((options & WNOHANG) || virt_ret != 0)
-        {
-          break;
-        }
+        break;
       __nanosleep_hook (&ts, NULL);
     }
 
@@ -295,13 +291,9 @@ __kill_hook (pid_t pid, int sig)
       unsafe_enter ();
       real_pid = virtual_to_real_pid (pid);
       if (real_pid == -1)
-        {
-          retval = -1;
-        }
+        retval = -1;
       else
-        {
-          retval = kill (real_pid, sig);
-        }
+        retval = kill (real_pid, sig);
       unsafe_exit ();
       break;
     }
@@ -330,13 +322,9 @@ __killpg_hook (pid_t pgrp, int sig)
     {
       real_pgrp = virtual_to_real_pid (pgrp);
       if (real_pgrp == -1)
-        {
-          retval = -1;
-        }
+        retval = -1;
       else
-        {
-          retval = killpg (real_pgrp, sig);
-        }
+        retval = killpg (real_pgrp, sig);
     }
   unsafe_exit ();
 
@@ -348,14 +336,14 @@ bsdinfo_real_to_virt (struct proc_bsdinfo *bsd)
 {
   pid_t virt;
 
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->pbi_pid)) != -1)
-    bsd->pbi_pid = (u32)virt;
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->pbi_ppid)) != -1)
-    bsd->pbi_ppid = (u32)virt;
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->pbi_pgid)) != -1)
-    bsd->pbi_pgid = (u32)virt;
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->e_tpgid)) != -1)
-    bsd->e_tpgid = (u32)virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->pbi_pid)) != -1)
+    bsd->pbi_pid = (u32) virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->pbi_ppid)) != -1)
+    bsd->pbi_ppid = (u32) virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->pbi_pgid)) != -1)
+    bsd->pbi_pgid = (u32) virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->e_tpgid)) != -1)
+    bsd->e_tpgid = (u32) virt;
 }
 
 static inline void
@@ -363,12 +351,12 @@ bsdshortinfo_real_to_virt (struct proc_bsdshortinfo *bsd)
 {
   pid_t virt;
 
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->pbsi_pid)) != -1)
-    bsd->pbsi_pid = (u32)virt;
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->pbsi_ppid)) != -1)
-    bsd->pbsi_ppid = (u32)virt;
-  if ((virt = real_to_virtual_pid ((pid_t)bsd->pbsi_pgid)) != -1)
-    bsd->pbsi_pgid = (u32)virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->pbsi_pid)) != -1)
+    bsd->pbsi_pid = (u32) virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->pbsi_ppid)) != -1)
+    bsd->pbsi_ppid = (u32) virt;
+  if ((virt = real_to_virtual_pid ((pid_t) bsd->pbsi_pgid)) != -1)
+    bsd->pbsi_pgid = (u32) virt;
 }
 
 /**
@@ -417,9 +405,9 @@ __proc_pidinfo_hook (int pid, int flavor, u64 arg, void *buf, int bufsize)
         case PROC_PIDTBSDINFO:
           {
             struct proc_bsdinfo *info;
-            if ((size_t)ret >= sizeof (*info))
+            if ((size_t) ret >= sizeof (*info))
               {
-                info = (struct proc_bsdinfo *)buf;
+                info = (struct proc_bsdinfo *) buf;
                 bsdinfo_real_to_virt (info);
               }
             break;
@@ -427,9 +415,9 @@ __proc_pidinfo_hook (int pid, int flavor, u64 arg, void *buf, int bufsize)
         case PROC_PIDTASKALLINFO:
           {
             struct proc_taskallinfo *info;
-            if ((size_t)ret >= sizeof (*info))
+            if ((size_t) ret >= sizeof (*info))
               {
-                info = (struct proc_taskallinfo *)buf;
+                info = (struct proc_taskallinfo *) buf;
                 bsdinfo_real_to_virt (&info->pbsd);
               }
             break;
@@ -437,9 +425,9 @@ __proc_pidinfo_hook (int pid, int flavor, u64 arg, void *buf, int bufsize)
         case PROC_PIDT_SHORTBSDINFO:
           {
             struct proc_bsdshortinfo *info;
-            if ((size_t)ret >= sizeof (*info))
+            if ((size_t) ret >= sizeof (*info))
               {
-                info = (struct proc_bsdshortinfo *)buf;
+                info = (struct proc_bsdshortinfo *) buf;
                 bsdshortinfo_real_to_virt (info);
               }
             break;
@@ -737,7 +725,7 @@ __proc_listpgrppids_hook (pid_t pgrp, void *buf, int bufsize)
 
   ret = proc_listpgrppids (real_pgrp, buf, bufsize);
   if (ret > 0 && buf != NULL)
-    pid_list_real_to_virt (buf, ret / (int)sizeof (pid_t));
+    pid_list_real_to_virt (buf, ret / (int) sizeof (pid_t));
 
   unsafe_exit ();
   return ret;
@@ -762,7 +750,7 @@ __proc_listchildpids_hook (pid_t ppid, void *buf, int bufsize)
 
   ret = proc_listchildpids (real_ppid, buf, bufsize);
   if (ret > 0 && buf != NULL)
-    pid_list_real_to_virt (buf, ret / (int)sizeof (pid_t));
+    pid_list_real_to_virt (buf, ret / (int) sizeof (pid_t));
 
   unsafe_exit ();
   return ret;
@@ -780,19 +768,19 @@ __proc_listpids_hook (u32 type, u32 typeinfo, void *buf, int bufsize)
   unsafe_enter ();
   if (type == PROC_PGRP_ONLY || type == PROC_PPID_ONLY)
     {
-      real_typeinfo = virtual_to_real_pid ((pid_t)typeinfo);
+      real_typeinfo = virtual_to_real_pid ((pid_t) typeinfo);
       if (real_typeinfo == -1)
         {
           unsafe_exit ();
           errno = ESRCH;
           return 0;
         }
-      typeinfo = (u32)real_typeinfo;
+      typeinfo = (u32) real_typeinfo;
     }
 
   ret = proc_listpids (type, typeinfo, buf, bufsize);
   if (ret > 0 && buf != NULL)
-    pid_list_real_to_virt (buf, ret / (int)sizeof (pid_t));
+    pid_list_real_to_virt (buf, ret / (int) sizeof (pid_t));
 
   unsafe_exit ();
   return ret;
@@ -809,7 +797,7 @@ __proc_listallpids_hook (void *buf, int bufsize)
   unsafe_enter ();
   ret = proc_listallpids (buf, bufsize);
   if (ret > 0 && buf != NULL)
-    pid_list_real_to_virt (buf, ret / (int)sizeof (pid_t));
+    pid_list_real_to_virt (buf, ret / (int) sizeof (pid_t));
 
   unsafe_exit ();
   return ret;

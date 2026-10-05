@@ -29,7 +29,7 @@ static void *
 thread_doit (void *arg)
 {
   uint64_t step;
-  struct thread_args *args = (struct thread_args *)arg;
+  struct thread_args *args = (struct thread_args *) arg;
 
   for (step = 0; step < args->steps; step++)
     args->callback (args->arg);
@@ -45,9 +45,9 @@ xnd_ulock_verify (void)
   struct thread_args args;
 
   args.steps = 100000;
-  args.arg = (void *)&ulock;
+  args.arg = (void *) &ulock;
   args.callback = ^(void *lock) {
-    struct xnd_ulock *ul = (struct xnd_ulock *)lock;
+    struct xnd_ulock *ul = (struct xnd_ulock *) lock;
     xnd_ulock_lock (ul);
     counter++;
     xnd_ulock_unlock (ul);
@@ -55,7 +55,7 @@ xnd_ulock_verify (void)
 
   for (int n = 2; n <= 32; n <<= 1)
     {
-      spawn_threads (n, NULL, thread_doit, (void *)&args);
+      spawn_threads (n, NULL, thread_doit, (void *) &args);
       if ((n * args.steps) != counter)
         return 1;
       counter = 0;
@@ -67,7 +67,7 @@ xnd_ulock_verify (void)
   args.steps = 2500;
   args.callback = ^(void *lock) {
     struct node *node = NULL;
-    struct xnd_ulock *ul = (struct xnd_ulock *)lock;
+    struct xnd_ulock *ul = (struct xnd_ulock *) lock;
     for (int i = 0; i < 5; i++)
       {
         node = xmalloc (sizeof (*node));
@@ -90,7 +90,7 @@ xnd_ulock_verify (void)
 
   for (int n = 2; n <= 32; n <<= 1)
     {
-      spawn_threads (n, NULL, thread_doit, (void *)&args);
+      spawn_threads (n, NULL, thread_doit, (void *) &args);
       if ((head != NULL) || (insertions != (5 * args.steps * n))
           || (insertions != deletions))
         return 1;
@@ -111,10 +111,10 @@ do_bench (int nthrds, uint64_t steps, void (^cb) (void *), void *arg)
   };
 
   start = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
-  spawn_threads (nthrds, NULL, thread_doit, (void *)&args);
+  spawn_threads (nthrds, NULL, thread_doit, (void *) &args);
   end = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
 
-  return (uint32_t)((end - start) / NSEC_PER_MSEC);
+  return (uint32_t) ((end - start) / NSEC_PER_MSEC);
 }
 
 static uint32_t
@@ -124,13 +124,13 @@ xnd_ulock_bench (int nthrds, uint64_t steps, void (^work) (void))
   void (^callback) (void *) = NULL;
 
   callback = ^(void *arg) {
-    struct xnd_ulock *ul = (struct xnd_ulock *)arg;
+    struct xnd_ulock *ul = (struct xnd_ulock *) arg;
     xnd_ulock_lock (ul);
     work ();
     xnd_ulock_unlock (ul);
   };
 
-  return do_bench (nthrds, steps, callback, (void *)&ulock);
+  return do_bench (nthrds, steps, callback, (void *) &ulock);
 }
 
 static uint32_t
@@ -140,13 +140,13 @@ pthread_mutex_bench (int nthrds, uint64_t steps, void (^work) (void))
   void (^callback) (void *) = NULL;
 
   callback = ^(void *arg) {
-    pthread_mutex_t *m = (pthread_mutex_t *)arg;
+    pthread_mutex_t *m = (pthread_mutex_t *) arg;
     xpthread_mutex_lock (m);
     work ();
     xpthread_mutex_unlock (m);
   };
 
-  return do_bench (nthrds, steps, callback, (void *)&mutex);
+  return do_bench (nthrds, steps, callback, (void *) &mutex);
 }
 
 static unsigned long
@@ -156,13 +156,13 @@ os_unfair_lock_bench (int nthrds, uint64_t steps, void (^work) (void))
   void (^callback) (void *) = NULL;
 
   callback = ^(void *arg) {
-    os_unfair_lock_t l = (os_unfair_lock_t)arg;
+    os_unfair_lock_t l = (os_unfair_lock_t) arg;
     os_unfair_lock_lock (l);
     work ();
     os_unfair_lock_unlock (l);
   };
 
-  return do_bench (nthrds, steps, callback, (void *)&lock);
+  return do_bench (nthrds, steps, callback, (void *) &lock);
 }
 
 static int

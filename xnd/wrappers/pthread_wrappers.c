@@ -87,7 +87,7 @@ pthread_joiner_cond_cleanup (void *arg)
   self = thread_self ();
   xnd_assert (self != NULL);
 
-  t = (struct thread_info *)arg;
+  t = (struct thread_info *) arg;
   xnd_assert (t->ti_joiner == self);
 
   t->ti_joiner = NULL;
@@ -99,7 +99,7 @@ pthread_joiner_cond_cleanup (void *arg)
 static void
 pthread_joiner_cleanup (void *arg)
 {
-  struct thread_info *t = (struct thread_info *)arg;
+  struct thread_info *t = (struct thread_info *) arg;
 
   /*
 	 * We called unsafe_enter() before pthread_join(), and are

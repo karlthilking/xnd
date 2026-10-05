@@ -33,9 +33,7 @@ __openat_hook (int dirfd, const char *path, int flags, ...)
 
   unsafe_enter ();
   if ((retval = openat (dirfd, path, flags, mode)) != -1)
-    {
-      fd_table_open (retval, path, flags, mode);
-    }
+    fd_table_open (retval, path, flags, mode);
   unsafe_exit ();
 
   return retval;
@@ -82,9 +80,7 @@ __close_hook (int fd)
 
   unsafe_enter ();
   if ((retval = close (fd)) != -1)
-    {
-      fd_table_close (fd);
-    }
+    fd_table_close (fd);
   unsafe_exit ();
 
   return retval;
@@ -100,9 +96,7 @@ __dup_hook (int oldfd)
 
   unsafe_enter ();
   if ((newfd = dup (oldfd)) != -1)
-    {
-      fd_table_dup (oldfd, newfd);
-    }
+    fd_table_dup (oldfd, newfd);
   unsafe_exit ();
 
   return newfd;

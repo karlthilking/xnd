@@ -98,7 +98,7 @@ void thread_exit (void *) __noreturn;
 void thread_sighandler (int, siginfo_t *, void *);
 void thread_suspend_safe (void);
 
-struct thread_info *thread_init (void *(*)(void *), void *);
+struct thread_info *thread_init (void *(*) (void *), void *);
 struct thread_info *thread_self (void);
 struct thread_info *thread_from_pthread_acquire_ref (pthread_t);
 

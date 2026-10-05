@@ -23,7 +23,7 @@ static void xnd_sigtramp (union __sigaction_u, int, int, siginfo_t *,
 static void
 xnd_sigreturn (ucontext_t *uctx, int ctxstyle, uintptr_t token)
 {
-  u64 *fp = (u64 *)get_ucontext_fp (uctx);
+  u64 *fp = (u64 *) get_ucontext_fp (uctx);
 
   ptrauth_patch_siguctx (uctx);
   ptrauth_resign_frames (fp);
@@ -67,11 +67,11 @@ xnd_sigaction (int sig, const struct sigaction *nsv, struct sigaction *osv)
       return -1;
     }
 
-  sap = (struct __sigaction *)0;
+  sap = (struct __sigaction *) 0;
   if (nsv != NULL)
     {
       sa.sa_handler = nsv->sa_handler;
-      sa.sa_tramp = (void *)xnd_sigtramp;
+      sa.sa_tramp = (void *) xnd_sigtramp;
       sa.sa_mask = nsv->sa_mask;
       sa.sa_flags = nsv->sa_flags;
       sa.sa_flags &= ~SA_VALIDATE_SIGRETURN_FROM_SIGTRAMP;

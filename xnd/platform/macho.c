@@ -28,13 +28,13 @@ fat_is_arm64e (void *fh_addr)
   s32 cputype, subtype;
   bool bswap;
 
-  fh = (struct fat_header *)fh_addr;
+  fh = (struct fat_header *) fh_addr;
   xnd_assert (!HEADER_IS_64BIT (fh->magic));
 
   bswap = NEEDS_BSWAP (fh->magic);
   nfat_arch = (bswap ? bswap32 (fh->nfat_arch) : fh->nfat_arch);
 
-  fa = (struct fat_arch *)((uchar *)fh_addr + sizeof (*fh));
+  fa = (struct fat_arch *) ((uchar *) fh_addr + sizeof (*fh));
   for (u32 idx = 0; idx < nfat_arch; idx++, fa++)
     {
       if (bswap)
@@ -62,7 +62,7 @@ macho_is_arm64e (void *mh_addr)
 {
   struct mach_header_64 *mh;
 
-  mh = (struct mach_header_64 *)mh_addr;
+  mh = (struct mach_header_64 *) mh_addr;
   xnd_assert (HEADER_IS_64BIT (mh->magic));
 
   if (mh->cputype != CPU_TYPE_ARM64)
@@ -74,7 +74,7 @@ macho_is_arm64e (void *mh_addr)
 static inline bool
 binary_is_arm64e (void *hdr)
 {
-  u32 magic = *(u32 *)hdr;
+  u32 magic = *(u32 *) hdr;
 
   if (HEADER_IS_MACHO (magic))
     return macho_is_arm64e (hdr);
@@ -94,13 +94,13 @@ fat_arm64e_to_arm64 (void *addr)
   s32 cputype;
   bool bswap;
 
-  fh = (struct fat_header *)addr;
+  fh = (struct fat_header *) addr;
   xnd_assert (!HEADER_IS_64BIT (fh->magic));
 
   bswap = NEEDS_BSWAP (fh->magic);
   nfat_arch = (bswap ? bswap32 (fh->nfat_arch) : fh->nfat_arch);
 
-  fa = (struct fat_arch *)((char *)addr + sizeof (*fh));
+  fa = (struct fat_arch *) ((char *) addr + sizeof (*fh));
   for (u32 idx = 0; idx < nfat_arch; idx++, fa++)
     {
       cputype = (bswap ? bswap32 (fa->cputype) : fa->cputype);
@@ -109,10 +109,10 @@ fat_arm64e_to_arm64 (void *addr)
     }
 
   offset = (bswap ? bswap32 (fa->offset) : fa->offset);
-  mh = (struct mach_header_64 *)((char *)addr + offset);
+  mh = (struct mach_header_64 *) ((char *) addr + offset);
   xnd_assert (HEADER_IS_MACHO (mh->magic));
 
-  return macho_arm64e_to_arm64 ((void *)mh);
+  return macho_arm64e_to_arm64 ((void *) mh);
 }
 
 /*
@@ -126,14 +126,14 @@ macho_arm64e_to_arm64 (void *addr)
 {
   struct mach_header_64 *mh;
 
-  mh = (struct mach_header_64 *)addr;
+  mh = (struct mach_header_64 *) addr;
 
   xnd_assert (HEADER_IS_64BIT (mh->magic));
   xnd_assert (!NEEDS_BSWAP (mh->magic));
   xnd_assert (mh->cputype == CPU_TYPE_ARM64);
 
   mh->cpusubtype = CPU_SUBTYPE_ARM64_ALL;
-  return (void *)mh;
+  return (void *) mh;
 }
 
 int
@@ -157,7 +157,7 @@ binary_arm64e_to_arm64 (char *path, char *tmp)
       goto out;
     }
 
-  size = (size_t)off;
+  size = (size_t) off;
   addr = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, srcfd, 0);
   if (addr == MAP_FAILED)
     {
@@ -178,7 +178,7 @@ binary_arm64e_to_arm64 (char *path, char *tmp)
       goto out;
     }
 
-  magic = *(u32 *)addr;
+  magic = *(u32 *) addr;
   if (HEADER_IS_MACHO (magic))
     {
       mh = macho_arm64e_to_arm64 (addr);
@@ -199,7 +199,7 @@ binary_arm64e_to_arm64 (char *path, char *tmp)
          * The resulting binary should be just one mach-o executable,
          * other architectures can be ignored.
          */
-  nbyte = size - (size_t)((char *)mh - (char *)addr);
+  nbyte = size - (size_t) ((char *) mh - (char *) addr);
 
   /**
          * Hard fail if arm64e executable uses LC_DYLD_INFO(_ONLY)
@@ -250,17 +250,17 @@ macho_find_load_command (void *mh_addr, u32 cmd)
   bool bswap;
   u32 idx, offset, ncmds;
 
-  mh = (struct mach_header *)mh_addr;
+  mh = (struct mach_header *) mh_addr;
   bswap = NEEDS_BSWAP (mh->magic);
   ncmds = (bswap ? bswap32 (mh->ncmds) : mh->ncmds);
 
-  lc_start = (uintptr_t)mh_addr;
+  lc_start = (uintptr_t) mh_addr;
   lc_start += (HEADER_IS_64BIT (mh->magic) ? sizeof (struct mach_header_64)
                                            : sizeof (struct mach_header));
 
   for (idx = 0, offset = 0; idx < ncmds; idx++)
     {
-      lc = (struct load_command *)(lc_start + offset);
+      lc = (struct load_command *) (lc_start + offset);
       if (lc->cmd == cmd)
         return lc;
       offset += lc->cmdsize;
@@ -277,19 +277,19 @@ macho_find_segment (void *mh_addr, u32 seg_index)
   u32 cmdsize, idx = 0;
   uintptr_t lc_start, offset;
 
-  mh = (struct mach_header *)mh_addr;
-  lc_start = (uintptr_t)mh;
+  mh = (struct mach_header *) mh_addr;
+  lc_start = (uintptr_t) mh;
   lc_start += (HEADER_IS_64BIT (mh->magic) ? sizeof (struct mach_header_64)
                                            : sizeof (struct mach_header));
 
   for (offset = 0; offset < mh->sizeofcmds; offset += cmdsize)
     {
-      lc = (struct load_command *)(lc_start + offset);
+      lc = (struct load_command *) (lc_start + offset);
       cmdsize = lc->cmdsize;
       if (lc->cmd == LC_SEGMENT || lc->cmd == LC_SEGMENT_64)
         {
           if (idx++ == seg_index)
-            return (void *)lc;
+            return (void *) lc;
         }
     }
 
@@ -306,11 +306,11 @@ macho_thin_from_fat (void *fh_addr, s32 arch)
   s32 cputype;
   bool bswap, found = false;
 
-  fh = (struct fat_header *)fh_addr;
+  fh = (struct fat_header *) fh_addr;
   bswap = NEEDS_BSWAP (fh->magic);
   nfat_arch = (bswap ? bswap32 (fh->nfat_arch) : fh->nfat_arch);
 
-  fa = (struct fat_arch *)((char *)fh + sizeof (*fh));
+  fa = (struct fat_arch *) ((char *) fh + sizeof (*fh));
   for (u32 idx = 0; idx < nfat_arch; idx++, fa++)
     {
       cputype = (bswap ? bswap32 (fa->cputype) : fa->cputype);
@@ -328,5 +328,5 @@ macho_thin_from_fat (void *fh_addr, s32 arch)
     }
 
   offset = (bswap ? bswap32 (fa->offset) : fa->offset);
-  return (void *)((char *)fh + offset);
+  return (void *) ((char *) fh + offset);
 }

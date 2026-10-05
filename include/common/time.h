@@ -5,27 +5,27 @@
 #include <time.h>
 
 #ifndef MSEC_PER_SEC
-#define MSEC_PER_SEC (1000L)
+# define MSEC_PER_SEC (1000L)
 #endif
 
 #ifndef NSEC_PER_USEC
-#define NSEC_PER_USEC (1000L)
+# define NSEC_PER_USEC (1000L)
 #endif
 
 #ifndef USEC_PER_MSEC
-#define USEC_PER_MSEC (1000L)
+# define USEC_PER_MSEC (1000L)
 #endif
 
 #ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC (1000000L)
+# define NSEC_PER_MSEC (1000000L)
 #endif
 
 #ifndef USEC_PER_SEC
-#define USEC_PER_SEC (1000000L)
+# define USEC_PER_SEC (1000000L)
 #endif
 
 #ifndef NSEC_PER_SEC
-#define NSEC_PER_SEC (1000000000L)
+# define NSEC_PER_SEC (1000000000L)
 #endif
 
 #define TIMEVAL_TO_MSEC(tvp) \
@@ -81,23 +81,23 @@
   while (0)
 
 #ifndef TIMESPEC_TO_TIMEVAL
-#define TIMESPEC_TO_TIMEVAL(tsp, tvp)                    \
-  do                                                     \
-    {                                                    \
-      (tvp)->tv_sec = (tsp)->tv_sec;                     \
-      (tvp)->tv_usec = ((tsp)->tv_nsec / NSEC_PER_USEC); \
-    }                                                    \
-  while (0)
+# define TIMESPEC_TO_TIMEVAL(tsp, tvp)                    \
+   do                                                     \
+     {                                                    \
+       (tvp)->tv_sec = (tsp)->tv_sec;                     \
+       (tvp)->tv_usec = ((tsp)->tv_nsec / NSEC_PER_USEC); \
+     }                                                    \
+   while (0)
 #endif /* TIMESPEC_TO_TIMEVAL */
 
 #ifndef TIMEVAL_TO_TIMESPEC
-#define TIMEVAL_TO_TIMESPEC(tvp, tsp)                    \
-  do                                                     \
-    {                                                    \
-      (tsp)->tv_sec = (tvp)->tv_sec;                     \
-      (tsp)->tv_nsec = ((tvp)->tv_usec * NSEC_PER_USEC); \
-    }                                                    \
-  while (0)
+# define TIMEVAL_TO_TIMESPEC(tvp, tsp)                    \
+   do                                                     \
+     {                                                    \
+       (tsp)->tv_sec = (tvp)->tv_sec;                     \
+       (tsp)->tv_nsec = ((tvp)->tv_usec * NSEC_PER_USEC); \
+     }                                                    \
+   while (0)
 #endif /* TIMEVAL_TO_TIMESPEC */
 
 /*
@@ -105,20 +105,20 @@
  * must be placed in the same lexical scope.
  */
 #if TIMING
-#define TIMER_PUSH(name)                  \
-  {                                       \
-    struct timespec __tp_start, __tp_end; \
-    const char *__event = #name;          \
-    long __elapsed;                       \
-    clock_gettime (CLOCK_UPTIME_RAW, &__tp_start);
-#define TIMER_POP()                                        \
-  clock_gettime (CLOCK_UPTIME_RAW, &__tp_end);             \
-  __elapsed = TIMESPEC_MSEC_DIFF (&__tp_end, &__tp_start); \
-  xnd_printf ("%s took %ldms\n", __event, __elapsed);      \
-  }
+# define TIMER_PUSH(name)                  \
+   {                                       \
+     struct timespec __tp_start, __tp_end; \
+     const char *__event = #name;          \
+     long __elapsed;                       \
+     clock_gettime (CLOCK_UPTIME_RAW, &__tp_start);
+# define TIMER_POP()                                        \
+   clock_gettime (CLOCK_UPTIME_RAW, &__tp_end);             \
+   __elapsed = TIMESPEC_MSEC_DIFF (&__tp_end, &__tp_start); \
+   xnd_printf ("%s took %ldms\n", __event, __elapsed);      \
+   }
 #else /* !TIMING */
-#define TIMER_PUSH(name) ((void)0)
-#define TIMER_POP()      ((void)0)
+# define TIMER_PUSH(name) ((void) 0)
+# define TIMER_POP()      ((void) 0)
 #endif /* TIMING */
 
 #endif /* TIME_COMMON_H */

@@ -26,14 +26,14 @@ extern void xnd_ulock_wait (struct xnd_ulock *);
 extern void xnd_ulock_wake (struct xnd_ulock *);
 
 #define xnd_ulock_lock(ul)                                                  \
-  ((void)({                                                                 \
+  ((void) ({                                                                \
     struct xnd_ulock *__ul = (ul);                                          \
     if (__xnd_unlikely (!xnd_atomic_cmpxchg_acquire (&__ul->ul_val, 0, 1))) \
       xnd_ulock_wait (__ul);                                                \
   }))
 
 #define xnd_ulock_unlock(ul)                                              \
-  ((void)({                                                               \
+  ((void) ({                                                              \
     struct xnd_ulock *__ul = (ul);                                        \
     if (__xnd_unlikely (xnd_atomic_xchg_release (&__ul->ul_val, 0) == 2)) \
       xnd_ulock_wake (__ul);                                              \

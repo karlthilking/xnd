@@ -20,7 +20,7 @@
 #define XND_RESTART_BINARY "xnd_restart_internal"
 
 #ifndef POSIX_SPAWN_DISABLE_ASLR
-#define POSIX_SPAWN_DISABLE_ASLR 0x0100
+# define POSIX_SPAWN_DISABLE_ASLR 0x0100
 #endif
 
 namespace xnd
@@ -99,9 +99,7 @@ public:
       {
         err = xnd_decompress_ckpt (dirfd, ckptfile);
         if (err != 0)
-          {
-            exit (XND_EXIT_FAILURE);
-          }
+          exit (XND_EXIT_FAILURE);
         xnd_assert (faccessat (dirfd, ckptfile, F_OK, 0) == 0);
         if ((fd = openat (dirfd, ckptfile, O_RDONLY)) < 0)
           {
@@ -112,9 +110,7 @@ public:
 
     bytes = readall (fd, &header, sizeof (header));
     if (bytes != sizeof (header))
-      {
-        exit (XND_EXIT_FAILURE);
-      }
+      exit (XND_EXIT_FAILURE);
 
     xnd_assert (xnd_pid_ == header.xnd_pid);
     close (fd);
@@ -268,34 +264,22 @@ public:
       {
         _indegree[t] = 0;
         for (auto c : targets)
-          {
-            if (t == c)
-              {
-                continue;
-              }
-            else if (c->was_child_of (t))
-              {
-                _map[t].push_back (c);
-              }
-          }
+          if (t == c)
+            continue;
+          else if (c->was_child_of (t))
+            _map[t].push_back (c);
       }
 
     for (auto &[t, children] : _map)
-      {
-        for (auto c : children)
-          {
-            _indegree[c]++;
-          }
-      }
+      for (auto c : children)
+        _indegree[c]++;
   }
 
   auto
   indegree_of (xnd_restart_target *t) const noexcept -> unsigned int
   {
     if (auto it = _indegree.find (t); it != _indegree.end ())
-      {
-        return it->second;
-      }
+      return it->second;
 
     return 0u;
   }
@@ -306,9 +290,7 @@ public:
     if (auto it = _map.find (t); it != _map.end ())
       {
         if (it->second.empty ())
-          {
-            return false;
-          }
+          return false;
         return true;
       }
 
@@ -320,9 +302,7 @@ public:
       -> std::vector<xnd_restart_target *>
   {
     if (auto it = _map.find (t); it != _map.end ())
-      {
-        return it->second;
-      }
+      return it->second;
 
     return {};
   }

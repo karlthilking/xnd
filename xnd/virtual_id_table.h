@@ -7,7 +7,7 @@
 #include <string.h>
 
 #ifdef __cplusplus
-#include <unordered_map>
+# include <unordered_map>
 
 namespace xnd
 {
@@ -51,14 +51,10 @@ public:
     int err;
 
     if ((err = pthread_mutex_unlock (&mtx)) != 0)
-      {
-        xnd_error ("pthread_mutex_unlock: %s\n", strerror (err));
-      }
+      xnd_error ("pthread_mutex_unlock: %s\n", strerror (err));
 
     if ((err = pthread_mutex_init (&mtx, NULL)) != 0)
-      {
-        xnd_error ("pthread_mutex_init: %s\n", strerror (err));
-      }
+      xnd_error ("pthread_mutex_init: %s\n", strerror (err));
   }
 
   void
@@ -107,12 +103,8 @@ public:
   real_id_exists (ID real) const noexcept
   {
     for (auto [virt_id, real_id] : table)
-      {
-        if (real_id == real)
-          {
-            return true;
-          }
-      }
+      if (real_id == real)
+        return true;
 
     return false;
   }
@@ -148,9 +140,7 @@ public:
   virtual_to_real (ID virt) const noexcept
   {
     if (auto it = table.find (virt); it != table.end ())
-      {
-        return it->second;
-      }
+      return it->second;
 
     return -1;
   }
@@ -159,12 +149,8 @@ public:
   real_to_virtual (ID real) const noexcept
   {
     for (auto [virt_id, real_id] : table)
-      {
-        if (real_id == real)
-          {
-            return virt_id;
-          }
-      }
+      if (real_id == real)
+        return virt_id;
 
     return -1;
   }

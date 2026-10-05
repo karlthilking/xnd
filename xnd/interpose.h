@@ -10,8 +10,8 @@
     const void *__replacement;                                    \
     const void *__replacee;                                       \
   } __interpose_##old __used __section ("__DATA,__interpose") = { \
-    (const void *)(uintptr_t)&(new),                              \
-    (const void *)(uintptr_t)&(old),                              \
+    (const void *) (uintptr_t) &(new),                            \
+    (const void *) (uintptr_t) &(old),                            \
   }
 
 #define XND_SKIP_INTERPOSE() \

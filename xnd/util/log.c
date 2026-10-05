@@ -109,7 +109,7 @@ xnd_log_shared_cache_info (void)
 
   dyld_env_value = getenv (dyld_env_key);
   start = _dyld_get_shared_cache_range (&size);
-  end = (const void *)((uintptr_t)start + size);
+  end = (const void *) ((uintptr_t) start + size);
 
   xnd_trace ("dyld shared cache info:\n"
              "        environment: %s=%s\n"
@@ -124,9 +124,9 @@ xnd_log_ckpt_thread_info (struct thread_info *ckpt_thread)
   mach_port_t kport;
   const uint kport_slot = __TSD_MACH_THREAD_SELF;
 
-  self = (uintptr_t)ckpt_thread->ti_self;
-  tls = pthread_tsd_base ((pthread_t)self);
-  kport = (mach_port_t)(uintptr_t)((void **)tls)[kport_slot];
+  self = (uintptr_t) ckpt_thread->ti_self;
+  tls = pthread_tsd_base ((pthread_t) self);
+  kport = (mach_port_t) (uintptr_t) ((void **) tls)[kport_slot];
 
   xnd_trace ("checkpoint thread info:\n"
              "     pthread_self(): 0x%016lx\n"
@@ -142,7 +142,7 @@ xnd_log_main_thread_info (void)
 
   asm volatile ("mrs %0, tpidrro_el0" : "=r"(tls)::"memory");
   thread_self = *tsd_slot_access (uintptr_t, __TSD_THREAD_SELF);
-  sig = *(long *)thread_self;
+  sig = *(long *) thread_self;
   munge = *tsd_slot_access (uintptr_t, __TSD_PTR_MUNGE);
 
   xnd_trace ("main thread info:\n"

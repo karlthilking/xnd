@@ -31,24 +31,16 @@ env_set_pid_info (pid_t virt_pid, pid_t real_pid, pid_t virt_ppid,
                   pid_t real_ppid)
 {
   if (virt_pid != -1)
-    {
-      env_set_pid (XND_VIRTUAL_PID_ENV, virt_pid);
-    }
+    env_set_pid (XND_VIRTUAL_PID_ENV, virt_pid);
 
   if (real_pid != -1)
-    {
-      env_set_pid (XND_REAL_PID_ENV, real_pid);
-    }
+    env_set_pid (XND_REAL_PID_ENV, real_pid);
 
   if (virt_ppid != -1)
-    {
-      env_set_pid (XND_VIRTUAL_PPID_ENV, virt_ppid);
-    }
+    env_set_pid (XND_VIRTUAL_PPID_ENV, virt_ppid);
 
   if (real_ppid != -1)
-    {
-      env_set_pid (XND_REAL_PPID_ENV, real_ppid);
-    }
+    env_set_pid (XND_REAL_PPID_ENV, real_ppid);
 }
 
 void
@@ -56,24 +48,16 @@ env_get_pid_info (pid_t *virt_pid, pid_t *real_pid, pid_t *virt_ppid,
                   pid_t *real_ppid)
 {
   if (virt_pid)
-    {
-      *virt_pid = env_get_pid (XND_VIRTUAL_PID_ENV);
-    }
+    *virt_pid = env_get_pid (XND_VIRTUAL_PID_ENV);
 
   if (real_pid)
-    {
-      *real_pid = env_get_pid (XND_REAL_PID_ENV);
-    }
+    *real_pid = env_get_pid (XND_REAL_PID_ENV);
 
   if (virt_ppid)
-    {
-      *virt_ppid = env_get_pid (XND_VIRTUAL_PPID_ENV);
-    }
+    *virt_ppid = env_get_pid (XND_VIRTUAL_PPID_ENV);
 
   if (real_ppid)
-    {
-      *real_ppid = env_get_pid (XND_REAL_PPID_ENV);
-    }
+    *real_ppid = env_get_pid (XND_REAL_PPID_ENV);
 }
 
 void
@@ -89,9 +73,7 @@ env_get_program_name (void)
   char *value;
 
   if ((value = getenv (XND_PROGRAM_ENV)) != NULL)
-    {
-      xnd_trace ("%s=%s\n", XND_PROGRAM_ENV, value);
-    }
+    xnd_trace ("%s=%s\n", XND_PROGRAM_ENV, value);
 
   return value;
 }
@@ -201,9 +183,7 @@ env_dyld_shared_region_is_private (void)
 
   value = getenv ("DYLD_SHARED_REGION");
   if (value == NULL || strcmp (value, "private"))
-    {
-      return false;
-    }
+    return false;
 
   return true;
 }
@@ -221,9 +201,7 @@ env_use_zlib_compression (void)
 
   value = getenv (XND_USE_ZLIB_ENV);
   if (value && atoi (value) != 0)
-    {
-      return true;
-    }
+    return true;
 
   return false;
 }

@@ -50,8 +50,8 @@ write_vm_region_dirty (int fd, struct xnd_vm_region *region)
   mach_vm_size_t size;
   mach_vm_address_t addr;
 
-  addr = (mach_vm_address_t)region->start;
-  size = (mach_vm_size_t)region->size;
+  addr = (mach_vm_address_t) region->start;
+  size = (mach_vm_size_t) region->size;
 
   if (region->prot == (VM_PROT_READ | VM_PROT_EXECUTE))
     {
@@ -64,8 +64,8 @@ write_vm_region_dirty (int fd, struct xnd_vm_region *region)
   int vec[vec_len];
 
   kr = mach_vm_page_range_query (mach_task_self (), addr, size,
-                                 (mach_vm_address_t)vec,
-                                 (mach_vm_size_t *)&vec_len);
+                                 (mach_vm_address_t) vec,
+                                 (mach_vm_size_t *) &vec_len);
   if (kr != KERN_SUCCESS)
     {
       xnd_error ("mach_vm_page_range_query: %s\n", mach_error_string (kr));
@@ -74,10 +74,8 @@ write_vm_region_dirty (int fd, struct xnd_vm_region *region)
 
   xnd_assert (vec_len == region->size / VM_PAGE_SIZE);
   for (idx = 0, dirty = 0; idx < vec_len; idx++)
-    {
-      if ((vec[idx] & VM_PAGE_QUERY_PAGE_DIRTY) != 0)
-        dirty++;
-    }
+    if ((vec[idx] & VM_PAGE_QUERY_PAGE_DIRTY) != 0)
+      dirty++;
 
   region->pages_dirtied = dirty;
   bytes = writeall (fd, region, sizeof (*region));
@@ -121,7 +119,7 @@ write_vm_region_all_pages (int fd, struct xnd_vm_region *region)
 
   for (p = 0; p < region->size / VM_PAGE_SIZE; p++)
     {
-      char *addr = (char *)region->start + p * VM_PAGE_SIZE;
+      char *addr = (char *) region->start + p * VM_PAGE_SIZE;
       bytes = writeall (fd, addr, VM_PAGE_SIZE);
       if (bytes != VM_PAGE_SIZE)
         {
@@ -289,9 +287,7 @@ write_ckpt (struct xnd_ckpt_header *header, enum xnd_ckpt_entry *entries,
     {
       bytes = writeall (fd, &entries[i], sizeof (entries[i]));
       if (bytes != sizeof (entries[i]))
-        {
-          goto bad;
-        }
+        goto bad;
 
       switch (entries[i])
         {

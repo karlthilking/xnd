@@ -40,19 +40,19 @@ extern void _thread_set_tsd_base (void *);
  * the tsd slot associated with tlv_flag_key (defined in thread_info.c),
  * then myself/thread_self() has been initialized.
  */
-#define XND_TLV_INIT ((void *)0x0000000005203090ULL)
+#define XND_TLV_INIT ((void *) 0x0000000005203090ULL)
 
-#define PTHREAD_TSD_OFFSET             ((intptr_t)224)
-#define PTHREAD_THREADID_OFFSET        ((intptr_t)216)
-#define PTHREAD_SIG_OFFSET             ((intptr_t)0)
-#define PTHREAD_CLEANUP_HANDLER_OFFSET ((intptr_t)8)
+#define PTHREAD_TSD_OFFSET             ((intptr_t) 224)
+#define PTHREAD_THREADID_OFFSET        ((intptr_t) 216)
+#define PTHREAD_SIG_OFFSET             ((intptr_t) 0)
+#define PTHREAD_CLEANUP_HANDLER_OFFSET ((intptr_t) 8)
 
 assert_pthread_offset (pthread, __sig, SIG);
 assert_pthread_offset (pthread, __cleanup_stack, CLEANUP_HANDLER);
 
-#define TSD_PTHREAD_OFFSET         ((intptr_t)-224)
-#define TSD_THREADID_OFFSET        ((intptr_t)-8)
-#define TSD_CLEANUP_HANDLER_OFFSET ((intptr_t)-216)
+#define TSD_PTHREAD_OFFSET         ((intptr_t) -224)
+#define TSD_THREADID_OFFSET        ((intptr_t) -8)
+#define TSD_CLEANUP_HANDLER_OFFSET ((intptr_t) -216)
 
 #define EXTERNAL_POSIX_THREAD_KEYS_MAX 512
 #define INTERNAL_POSIX_THREAD_KEYS_MAX 256
@@ -72,17 +72,17 @@ self_tsd_base (void)
 static inline uintptr_t
 pthread_tsd_base (pthread_t p)
 {
-  return ((uintptr_t)p + PTHREAD_TSD_OFFSET);
+  return ((uintptr_t) p + PTHREAD_TSD_OFFSET);
 }
 
-#define tsd_relative_access(type, offset) (type *)(self_tsd_base () + offset)
+#define tsd_relative_access(type, offset) (type *) (self_tsd_base () + offset)
 #define tsd_slot_access(type, slot) \
-  (type *)(self_tsd_base () + slot * sizeof (void *))
+  (type *) (self_tsd_base () + slot * sizeof (void *))
 
 #define pthread_struct_relative_access(p, type, offset) \
-  (type *)(pthread_tsd_base (p) + offset)
+  (type *) (pthread_tsd_base (p) + offset)
 #define pthread_struct_slot_access(p, type, slot) \
-  (type *)(pthread_tsd_base (p) + slot * sizeof (void *))
+  (type *) (pthread_tsd_base (p) + slot * sizeof (void *))
 
 static inline u64
 self_get_threadid (void)

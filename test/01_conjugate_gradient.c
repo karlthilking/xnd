@@ -35,7 +35,7 @@ gen_spd (double *A, ulong N)
   double *M = xmalloc (N * N * sizeof (double));
 
   for (ulong i = 0; i < N * N; i++)
-    M[i] = (double)rand () / RAND_MAX - 0.5;
+    M[i] = (double) rand () / RAND_MAX - 0.5;
 
   for (ulong i = 0; i < N; i++)
     {
@@ -91,7 +91,7 @@ cg (ulong N, int iters, double tolerance)
   gen_spd (A, N);
   for (ulong i = 0; i < N; i++)
     {
-      b[i] = (double)rand () / RAND_MAX;
+      b[i] = (double) rand () / RAND_MAX;
       x[i] = 0;
     }
 
@@ -127,9 +127,7 @@ cg (ulong N, int iters, double tolerance)
     }
 
   if (iter == iters)
-    {
-      printf ("Final iteration (%d): Residual=%.4e\n", iter, sqrt (rsold));
-    }
+    printf ("Final iteration (%d): Residual=%.4e\n", iter, sqrt (rsold));
 
   free (A);
   free (b);

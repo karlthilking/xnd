@@ -105,7 +105,7 @@ connect_to_coord (void)
 
   do
     {
-      ret = connect (fd, (struct sockaddr *)&addr, sizeof (addr));
+      ret = connect (fd, (struct sockaddr *) &addr, sizeof (addr));
       if (ret != 0)
         {
           retry = (errno == ENOENT || errno == ECONNREFUSED);

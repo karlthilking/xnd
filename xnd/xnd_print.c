@@ -14,7 +14,7 @@
 #include "xnd/util/path.h"
 #include "xnd/util/io.h"
 
-#define KILOBYTES(bytes) (((float)(bytes)) / 1024.0f)
+#define KILOBYTES(bytes) (((float) (bytes)) / 1024.0f)
 #define MEGABYTES(bytes) (KILOBYTES (bytes) / 1024.0f)
 #define GIGABYTES(bytes) (MEGABYTES (bytes) / 1024.0f)
 
@@ -479,7 +479,7 @@ print_ckpt_header (struct xnd_ckpt_header *header)
   dyld_cache_info = &header->shared_cache_info;
   uuid_unparse (dyld_cache_info->uuid, dyld_cache_uuid);
 
-  dyld_cache_base = (uintptr_t)dyld_cache_info->base;
+  dyld_cache_base = (uintptr_t) dyld_cache_info->base;
   dyld_cache_size = dyld_cache_info->size;
   dyld_cache_end = dyld_cache_base + dyld_cache_size;
 
@@ -552,7 +552,7 @@ print_vm_regions (struct xnd_vm_region *regions, u32 nregions)
           tmp = it->size;
         }
       tmp += sizeof (struct xnd_vm_region);
-      printf ("\tMemory region #%u\n", (u32)(it - regions));
+      printf ("\tMemory region #%u\n", (u32) (it - regions));
       printf ("\t       start=%p\n"
               "\t         end=%p\n"
               "\t        size=%zu\n"
@@ -562,7 +562,7 @@ print_vm_regions (struct xnd_vm_region *regions, u32 nregions)
               "\t     inherit=%s\n"
               "\t dirty pages=%u\n"
               "\t total bytes=%zu (in checkpoint image)\n\n",
-              it->start, (void *)((uintptr_t)it->start + it->size), it->size,
+              it->start, (void *) ((uintptr_t) it->start + it->size), it->size,
               VM_PROT_STRING (it->prot), VM_PROT_STRING (it->max_prot),
               vm_share_mode_string (it), vm_user_tag_string (it),
               vm_inherit_string (it), it->pages_dirtied, bytes);
@@ -573,7 +573,7 @@ print_vm_regions (struct xnd_vm_region *regions, u32 nregions)
 static void
 print_user_context (ucontext_t *uctx)
 {
-  mcontext_t mctx = (mcontext_t)&uctx->__mcontext_data;
+  mcontext_t mctx = (mcontext_t) &uctx->__mcontext_data;
 
   printf ("*********** Checkpointed User Context ***********\n");
   /* Callee-saved general purpose registers */
@@ -582,7 +582,7 @@ print_user_context (ucontext_t *uctx)
 
   /* FP/Vector registers */
   for (u32 i = 8; i <= 15; i++)
-    printf ("\td%u:\t0x%llx\n", i, (u64)mctx->__ns.__v[i]);
+    printf ("\td%u:\t0x%llx\n", i, (u64) mctx->__ns.__v[i]);
 
   printf ("\tfp:\t0x%llx\n", get_mcontext_fp (mctx));
   printf ("\tlr:\t0x%llx\n", get_mcontext_lr (mctx));
@@ -596,9 +596,7 @@ print_checkpoint (int fd)
   struct xnd_ckpt_header header;
 
   if (readall (fd, &header, sizeof (header)) < 0)
-    {
-      exit (EXIT_FAILURE);
-    }
+    exit (EXIT_FAILURE);
 
   print_ckpt_header (&header);
 
@@ -607,15 +605,11 @@ print_checkpoint (int fd)
   ucontext_t uctx;
 
   if (read_ckpt (fd, &header, entries, regions, &uctx) < 0)
-    {
-      exit (EXIT_FAILURE);
-    }
+    exit (EXIT_FAILURE);
 
   print_vm_regions (regions, header.region_count);
   if (print_options[PRINT_USER_CONTEXT])
-    {
-      print_user_context (&uctx);
-    }
+    print_user_context (&uctx);
 }
 
 static void

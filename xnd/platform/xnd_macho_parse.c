@@ -219,7 +219,7 @@ main (int argc, char *argv[])
       goto out;
     }
 
-  size = (size_t)offset;
+  size = (size_t) offset;
   addr = mmap (NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (addr == MAP_FAILED)
     {
@@ -228,7 +228,7 @@ main (int argc, char *argv[])
       goto out;
     }
 
-  magic = *(u32 *)addr;
+  magic = *(u32 *) addr;
   if (HEADER_IS_FAT (magic))
     {
       mh = macho_thin_from_fat (addr, CPU_TYPE_ARM64);
@@ -243,7 +243,7 @@ main (int argc, char *argv[])
       mh = addr;
     }
 
-  cmd = (void *)macho_find_load_command (mh, LC_DYLD_INFO_ONLY);
+  cmd = (void *) macho_find_load_command (mh, LC_DYLD_INFO_ONLY);
   if (cmd == NULL)
     {
       xnd_printf ("No LC_DYLD_INFO_ONLY in %s\n", path);
@@ -252,8 +252,8 @@ main (int argc, char *argv[])
     }
 
   info.path = path;
-  info.mh = (struct mach_header *)mh;
-  info.cmd = (struct dyld_info_command *)cmd;
+  info.mh = (struct mach_header *) mh;
+  info.cmd = (struct dyld_info_command *) cmd;
   info.fd = fd;
   info.size = size;
 
@@ -340,22 +340,22 @@ macho_dylib_name (void *mh_addr, long ordinal, bool special)
         }
     }
 
-  mh = (struct mach_header *)mh_addr;
+  mh = (struct mach_header *) mh_addr;
   lc_start = (HEADER_IS_64BIT (mh->magic)
-                  ? (uintptr_t)mh_addr + sizeof (struct mach_header_64)
-                  : (uintptr_t)mh_addr + sizeof (struct mach_header));
+                  ? (uintptr_t) mh_addr + sizeof (struct mach_header_64)
+                  : (uintptr_t) mh_addr + sizeof (struct mach_header));
 
   for (offset = 0; offset < mh->sizeofcmds; offset += cmdsize)
     {
-      lc = (struct load_command *)(lc_start + offset);
+      lc = (struct load_command *) (lc_start + offset);
       cmdsize = lc->cmdsize;
       if (lc->cmd != LC_LOAD_DYLIB && lc->cmd != LC_LOAD_WEAK_DYLIB
           && lc->cmd != LC_REEXPORT_DYLIB)
         continue;
       if (idx++ == ordinal)
         {
-          dylib = &((struct dylib_command *)lc)->dylib;
-          name = (char *)lc + dylib->name.offset;
+          dylib = &((struct dylib_command *) lc)->dylib;
+          name = (char *) lc + dylib->name.offset;
           return name;
         }
     }
@@ -372,19 +372,19 @@ macho_segment_name (void *mh_addr, u32 seg_index)
   uintptr_t lc_start, offset;
   u32 cmdsize, idx = 0;
 
-  mh = (struct mach_header *)mh_addr;
+  mh = (struct mach_header *) mh_addr;
   lc_start = (HEADER_IS_64BIT (mh->magic)
-                  ? (uintptr_t)mh_addr + sizeof (struct mach_header_64)
-                  : (uintptr_t)mh_addr + sizeof (struct mach_header));
+                  ? (uintptr_t) mh_addr + sizeof (struct mach_header_64)
+                  : (uintptr_t) mh_addr + sizeof (struct mach_header));
 
   for (offset = 0; offset < mh->sizeofcmds; offset += cmdsize)
     {
-      lc = (struct load_command *)(lc_start + offset);
+      lc = (struct load_command *) (lc_start + offset);
       cmdsize = lc->cmdsize;
       if (lc->cmd != LC_SEGMENT && lc->cmd != LC_SEGMENT_64)
         continue;
       else if (idx++ == seg_index)
-        return ((struct segment_command *)lc)->segname;
+        return ((struct segment_command *) lc)->segname;
     }
 
   xnd_error ("Couldn't find segment at index %u\n", seg_index);
@@ -428,17 +428,17 @@ macho_print_opcodes (struct macho_all_info *info, int which)
   switch (which)
     {
     case OPT_BIND_INFO:
-      op_start = (u8 *)info->mh + info->cmd->bind_off;
+      op_start = (u8 *) info->mh + info->cmd->bind_off;
       op_end = op_start + info->cmd->bind_size;
       printf ("Bind opcodes:\n");
       break;
     case OPT_WEAK_BIND_INFO:
-      op_start = (u8 *)info->mh + info->cmd->weak_bind_off;
+      op_start = (u8 *) info->mh + info->cmd->weak_bind_off;
       op_end = op_start + info->cmd->weak_bind_size;
       printf ("Weak bind opcodes:\n");
       break;
     case OPT_LAZY_BIND_INFO:
-      op_start = (u8 *)info->mh + info->cmd->lazy_bind_off;
+      op_start = (u8 *) info->mh + info->cmd->lazy_bind_off;
       op_end = op_start + info->cmd->lazy_bind_size;
       printf ("Lazy bind opcodes:\n");
       break;
@@ -467,7 +467,7 @@ macho_print_opcodes (struct macho_all_info *info, int which)
                   bind_opcode_str[op], ordinal, dylib_name);
           break;
         case BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB:
-          itr = decode_uleb128 (itr, (u64 *)&ordinal);
+          itr = decode_uleb128 (itr, (u64 *) &ordinal);
           dylib_name = macho_dylib_name (info->mh, ordinal, false);
           printf ("%s0x%llx %s: %ld (%s)\n", indent, opcode_offset,
                   bind_opcode_str[op], ordinal, dylib_name);
@@ -482,7 +482,7 @@ macho_print_opcodes (struct macho_all_info *info, int which)
         case BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM:
           nsymbols++;
           flags = imm;
-          symbol = (char *)itr;
+          symbol = (char *) itr;
           while (*itr != '\0')
             itr++;
           itr++;
@@ -557,7 +557,7 @@ macho_bind_table_size (struct macho_all_info *info)
   u64 size = 0;
   bool found = false;
 
-  op_start = (u8 *)info->mh + info->cmd->bind_off;
+  op_start = (u8 *) info->mh + info->cmd->bind_off;
   op_end = op_start + info->cmd->bind_size;
 
   itr = op_start;
@@ -602,7 +602,7 @@ macho_print_fixup (struct macho_all_info *info, struct fixup_entry *fixup)
   const char *segname, *dylib, *flags, *type;
   u8 auth_and_bind = 0;
 
-  ptr.value = *(u64 *)fixup->addr;
+  ptr.value = *(u64 *) fixup->addr;
   segname = macho_segment_name (info->mh, fixup->seg_index);
 
   auth_and_bind |= ((ptr.value & (1ull << 63)) != 0 ? 0b10 : 0b00);
@@ -632,11 +632,11 @@ macho_print_fixup (struct macho_all_info *info, struct fixup_entry *fixup)
                 "\t      flags: %s\n"
                 "\t       type: %s\n"
                 "\t     addend: %lld\n",
-                ptr.value, (u16)ptr.auth_bind.ordinal,
-                (u16)ptr.auth_bind.diversity,
+                ptr.value, (u16) ptr.auth_bind.ordinal,
+                (u16) ptr.auth_bind.diversity,
                 (ptr.auth_bind.addrDiv ? "true" : "false"),
-                pac_key_str[ptr.auth_bind.key], (u16)ptr.auth_bind.next, dylib,
-                segname, fixup->symbol, flags, type, fixup->addend);
+                pac_key_str[ptr.auth_bind.key], (u16) ptr.auth_bind.next,
+                dylib, segname, fixup->symbol, flags, type, fixup->addend);
         break;
       }
     case 0b10:
@@ -652,10 +652,10 @@ macho_print_fixup (struct macho_all_info *info, struct fixup_entry *fixup)
               "\t        key: %s\n"
               "\t       next: %u\n"
               "\t    segment: %s\n",
-              ptr.value, (u32)ptr.auth_rebase.target,
-              (u16)ptr.auth_rebase.diversity,
+              ptr.value, (u32) ptr.auth_rebase.target,
+              (u16) ptr.auth_rebase.diversity,
               (ptr.auth_rebase.addrDiv ? "true" : "false"),
-              pac_key_str[ptr.auth_rebase.key], (u16)ptr.auth_rebase.next,
+              pac_key_str[ptr.auth_rebase.key], (u16) ptr.auth_rebase.next,
               segname);
       break;
     case 0b01:
@@ -679,9 +679,9 @@ macho_print_fixup (struct macho_all_info *info, struct fixup_entry *fixup)
                 "\t      flags: %s\n"
                 "\t       type: %s\n"
                 "\t     addend: %lld\n",
-                ptr.value, (u16)ptr.bind.ordinal, (u32)ptr.bind.addend,
-                (u16)ptr.bind.next, dylib, segname, fixup->symbol, flags, type,
-                fixup->addend);
+                ptr.value, (u16) ptr.bind.ordinal, (u32) ptr.bind.addend,
+                (u16) ptr.bind.next, dylib, segname, fixup->symbol, flags,
+                type, fixup->addend);
         break;
       }
     case 0b00:
@@ -695,8 +695,8 @@ macho_print_fixup (struct macho_all_info *info, struct fixup_entry *fixup)
               "\t      high8: %u\n"
               "\t       next: %u\n"
               "\t    segment: %s\n",
-              ptr.value, (u64)ptr.rebase.target, (u8)ptr.rebase.high8,
-              (u16)ptr.rebase.next, segname);
+              ptr.value, (u64) ptr.rebase.target, (u8) ptr.rebase.high8,
+              (u16) ptr.rebase.next, segname);
       break;
     default:
       break;
@@ -719,14 +719,14 @@ macho_walk_fixup_chain (struct macho_all_info *info, u32 seg_index,
   if ((seg = macho_find_segment (info->mh, seg_index)) == NULL)
     return -1;
 
-  cmd = *(u32 *)seg;
+  cmd = *(u32 *) seg;
   switch (cmd)
     {
     case LC_SEGMENT:
-      offset = ((struct segment_command *)seg)->fileoff;
+      offset = ((struct segment_command *) seg)->fileoff;
       break;
     case LC_SEGMENT_64:
-      offset = ((struct segment_command_64 *)seg)->fileoff;
+      offset = ((struct segment_command_64 *) seg)->fileoff;
       break;
     default:
       xnd_error ("Unknown load command: %u\n", cmd);
@@ -747,10 +747,10 @@ macho_walk_fixup_chain (struct macho_all_info *info, u32 seg_index,
 
       entry = &(*chain)[(*chain_count)++];
       memset (entry, 0, sizeof (*entry));
-      entry->addr = (void *)((u8 *)info->mh + offset);
+      entry->addr = (void *) ((u8 *) info->mh + offset);
       entry->seg_index = seg_index;
 
-      value = *(u64 *)entry->addr;
+      value = *(u64 *) entry->addr;
       is_bind = (value & (1ULL << 62)) != 0;
 
       if (is_bind)
@@ -811,7 +811,7 @@ macho_parse_fixup_chains (struct macho_all_info *info)
       return -1;
     }
 
-  op_start = (u8 *)info->mh + info->cmd->bind_off;
+  op_start = (u8 *) info->mh + info->cmd->bind_off;
   op_end = op_start + info->cmd->bind_size;
 
   itr = op_start;
@@ -834,20 +834,21 @@ macho_parse_fixup_chains (struct macho_all_info *info)
           entry->type = type;
           break;
         case BIND_OPCODE_SET_DYLIB_ORDINAL_IMM:
-          lib_ordinal = (long)imm;
+          lib_ordinal = (long) imm;
           special = false;
           break;
         case BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB:
-          itr = decode_uleb128 (itr, (u64 *)&lib_ordinal);
+          itr = decode_uleb128 (itr, (u64 *) &lib_ordinal);
           special = false;
           break;
         case BIND_OPCODE_SET_DYLIB_SPECIAL_IMM:
-          lib_ordinal = (imm == 0 ? imm : (long)((s8)imm | BIND_OPCODE_MASK));
+          lib_ordinal =
+              (imm == 0 ? imm : (long) ((s8) imm | BIND_OPCODE_MASK));
           special = true;
           break;
         case BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM:
-          flags = (u32)imm;
-          symbol = (char *)itr;
+          flags = (u32) imm;
+          symbol = (char *) itr;
           while (*itr != '\0')
             itr++;
           itr++;
@@ -859,7 +860,7 @@ macho_parse_fixup_chains (struct macho_all_info *info)
           itr = decode_sleb128 (itr, &addend);
           break;
         case BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB:
-          seg_index = (u32)imm;
+          seg_index = (u32) imm;
           itr = decode_uleb128 (itr, &seg_offset);
           break;
         case BIND_OPCODE_ADD_ADDR_ULEB:

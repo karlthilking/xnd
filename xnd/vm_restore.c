@@ -53,7 +53,7 @@ ckpt_vm_mark_regions (void)
     {
       count = VM_REGION_SUBMAP_INFO_COUNT_64;
       kr = mach_vm_region_recurse (mach_task_self (), &addr, &size, &depth,
-                                   (vm_region_recurse_info_t)&info, &count);
+                                   (vm_region_recurse_info_t) &info, &count);
       if (kr != KERN_SUCCESS)
         break;
       else if (info.is_submap)
@@ -80,7 +80,7 @@ ckpt_vm_refresh_page (struct xnd_vm_region *rgn, struct xnd_vm_page *page)
   kern_return_t kr;
   mach_vm_address_t addr;
 
-  addr = (mach_vm_address_t)((uintptr_t)rgn->start + page->offset);
+  addr = (mach_vm_address_t) ((uintptr_t) rgn->start + page->offset);
   if (rgn->prot != VM_PROT_DEFAULT)
     {
       kr = mach_vm_protect (mach_task_self (), addr, VM_PAGE_SIZE, FALSE,
@@ -126,7 +126,7 @@ ckpt_vm_map_page (struct xnd_vm_region *rgn, struct xnd_vm_page *page)
   kern_return_t kr;
   mach_vm_address_t addr;
 
-  addr = (mach_vm_address_t)((uintptr_t)rgn->start + page->offset);
+  addr = (mach_vm_address_t) ((uintptr_t) rgn->start + page->offset);
   kr =
       mach_vm_map (mach_task_self (), &addr, VM_PAGE_SIZE, 0,
                    VM_FLAGS_FIXED | VM_MAKE_TAG (rgn->tag), MEMORY_OBJECT_NULL,
@@ -139,7 +139,7 @@ ckpt_vm_map_page (struct xnd_vm_region *rgn, struct xnd_vm_page *page)
       return -1;
     }
 
-  xnd_assert ((mach_vm_address_t)rgn->start == addr);
+  xnd_assert ((mach_vm_address_t) rgn->start == addr);
   return 0;
 }
 
@@ -150,7 +150,7 @@ ckpt_vm_page_restore (int fd, struct xnd_vm_region *rgn,
   void *addr;
   ssize_t bytes;
 
-  addr = (void *)((uintptr_t)rgn->start + page->offset);
+  addr = (void *) ((uintptr_t) rgn->start + page->offset);
   bytes = sys_readall (fd, addr, VM_PAGE_SIZE);
   if (bytes == VM_PAGE_SIZE)
     return 0;
@@ -215,7 +215,7 @@ ckpt_vm_restore_region_pages (int fd, struct xnd_vm_region *region)
 {
   int ret;
   vm_prot_t prot;
-  uintptr_t end = (uintptr_t)region->start + region->size;
+  uintptr_t end = (uintptr_t) region->start + region->size;
 
   /*
 	 * Memory regions in the dyld shared cache should not need
@@ -279,8 +279,8 @@ static inline int
 ckpt_vm_map_region (struct xnd_vm_region *region)
 {
   kern_return_t kr;
-  mach_vm_address_t addr = (mach_vm_address_t)region->start;
-  mach_vm_size_t size = (mach_vm_size_t)region->size;
+  mach_vm_address_t addr = (mach_vm_address_t) region->start;
+  mach_vm_size_t size = (mach_vm_size_t) region->size;
 
   kr = mach_vm_map (mach_task_self (), &addr, size, 0,
                     VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE
@@ -294,7 +294,7 @@ ckpt_vm_map_region (struct xnd_vm_region *region)
       return -1;
     }
 
-  xnd_assert ((mach_vm_address_t)region->start == addr);
+  xnd_assert ((mach_vm_address_t) region->start == addr);
   return 0;
 }
 
@@ -324,8 +324,8 @@ ckpt_vm_refresh_region (struct xnd_vm_region *region)
 
   if (region->inherit != VM_INHERIT_DEFAULT)
     {
-      addr = (mach_vm_address_t)region->start;
-      size = (mach_vm_size_t)region->size;
+      addr = (mach_vm_address_t) region->start;
+      size = (mach_vm_size_t) region->size;
       kr = mach_vm_inherit (mach_task_self (), addr, size, region->inherit);
       if (kr != KERN_SUCCESS)
         {
@@ -364,7 +364,7 @@ ckpt_vm_restore_region (int fd, struct xnd_vm_region *region)
     return -1;
 
   /* Restore cached mach port if overwritten */
-  end = (uintptr_t)region->start + region->size;
+  end = (uintptr_t) region->start + region->size;
   if (IN_VM_RANGE (&mach_task_self_, region->start, end))
     mach_task_self_ = task_self_trap ();
 
@@ -388,7 +388,7 @@ ckpt_vm_find_ubc_region (mach_vm_size_t *out)
     {
       count = VM_REGION_SUBMAP_INFO_COUNT_64;
       kr = mach_vm_region_recurse (mach_task_self (), &addr, &size, &depth,
-                                   (vm_region_recurse_info_t)&info, &count);
+                                   (vm_region_recurse_info_t) &info, &count);
       if (kr != KERN_SUCCESS)
         break;
       else if (info.is_submap)
@@ -404,7 +404,7 @@ ckpt_vm_find_ubc_region (mach_vm_size_t *out)
       addr += size;
     }
 
-  return (mach_vm_address_t)0;
+  return (mach_vm_address_t) 0;
 }
 
 int

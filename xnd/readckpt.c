@@ -38,7 +38,7 @@ read_context (int fd, ucontext_t *uctx)
   if (bytes != sizeof (*uctx))
     return -1;
 
-  uctx->uc_mcontext = (mcontext_t)&uctx->__mcontext_data;
+  uctx->uc_mcontext = (mcontext_t) &uctx->__mcontext_data;
   return 0;
 }
 

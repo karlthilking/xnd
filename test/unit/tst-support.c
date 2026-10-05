@@ -169,7 +169,7 @@ main (int argc, char *argv[])
 #ifdef TEST_NAME
   test_config.test_name = TEST_NAME;
 #else
-#error "TEST_NAME not defined"
+# error "TEST_NAME not defined"
 #endif
 
 #ifdef PREPARE_FUNCTION

@@ -59,7 +59,7 @@ struct xnd_ckpt_header
   struct shared_cache_info shared_cache_info;
 };
 
-static_assert (sizeof (((struct xnd_ckpt_header *)0)->magic)
+static_assert (sizeof (((struct xnd_ckpt_header *) 0)->magic)
                    >= sizeof (XND_HEADER_MAGIC),
                "");
 

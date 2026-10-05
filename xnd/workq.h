@@ -45,7 +45,7 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define wq_stalled_window_usecs() \
   workq_sysctl (uint32_t, "kern.wq_stalled_window_usecs")
 #define wq_stalled_window_nsecs() \
-  ((uint64_t)wq_stalled_window_usecs () * NSEC_PER_USEC)
+  ((uint64_t) wq_stalled_window_usecs () * NSEC_PER_USEC)
 
 /*
  * kern.wq_reduce_pool_window_usecs
@@ -55,7 +55,7 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define wq_reduce_pool_window_usecs() \
   workq_sysctl (uint32_t, "kern.wq_reduce_pool_window_usecs")
 #define wq_reduce_pool_window_nsecs() \
-  ((uint64_t)wq_reduce_pool_window_usecs () * NSEC_PER_USEC)
+  ((uint64_t) wq_reduce_pool_window_usecs () * NSEC_PER_USEC)
 
 /*
  * kern.wq_max_timer_interval_usecs
@@ -68,7 +68,7 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define wq_max_timer_interval_usecs() \
   workq_sysctl (uint32_t, "kern.wq_max_timer_interval_usecs")
 #define wq_max_timer_interval_nsecs() \
-  ((uint64_t)wq_max_timer_interval_usecs () * NSEC_PER_USEC)
+  ((uint64_t) wq_max_timer_interval_usecs () * NSEC_PER_USEC)
 
 #define WQ_SETUP     0x0001
 #define WQ_RESTORING 0x0002

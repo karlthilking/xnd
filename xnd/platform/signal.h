@@ -15,7 +15,7 @@
 #define SIGTERMSET (sigmask (SIGINT) | sigmask (SIGTERM) | sigmask (SIGQUIT))
 #define SIGCANTSET (sigmask (SIGKILL) | sigmask (SIGSTOP))
 
-#define sigisemptyset(set) (*(set) == (sigset_t)0)
+#define sigisemptyset(set) (*(set) == (sigset_t) 0)
 
 #define valid_signal(sig)    \
   ({                         \
@@ -29,10 +29,8 @@ sigandset (sigset_t *set, const sigset_t *left, const sigset_t *right)
   int sig;
 
   for (sig = 1; sig < NSIG; sig++)
-    {
-      if (sigismember (left, sig) && sigismember (right, sig))
-        sigaddset (set, sig);
-    }
+    if (sigismember (left, sig) && sigismember (right, sig))
+      sigaddset (set, sig);
 }
 
 static inline void
@@ -41,10 +39,8 @@ sigorset (sigset_t *set, const sigset_t *left, const sigset_t *right)
   int sig;
 
   for (sig = 1; sig < NSIG; sig++)
-    {
-      if (sigismember (left, sig) || sigismember (right, sig))
-        sigaddset (set, sig);
-    }
+    if (sigismember (left, sig) || sigismember (right, sig))
+      sigaddset (set, sig);
 }
 
 int xnd_sigaction (int, const struct sigaction *, struct sigaction *);

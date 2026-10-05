@@ -39,7 +39,7 @@ ptrauth_check_cleanup_ptr (void)
 
   if (PTRAUTH_SIGNED (__cleanup))
     {
-      mod = (u64)&__cleanup;
+      mod = (u64) &__cleanup;
       mod |= (CLEANUP_PTRAUTH_DISCRIMINATOR << 48);
       PTRAUTH_XPACI (__cleanup);
       PTRAUTH_PACIB (__cleanup, mod);

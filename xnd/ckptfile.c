@@ -34,9 +34,7 @@ xnd_ckptpath_name (char *buf, uuid_t uuid, u64 epoch, u32 xnd_pid,
   snprintf (buf, len, XND_CKPTPATH_FMT, uuid_str, epoch, xnd_pid);
 
   if (use_zlib)
-    {
-      strncat (buf, XND_COMPRESSED_SUFFIX, len - strlen (buf));
-    }
+    strncat (buf, XND_COMPRESSED_SUFFIX, len - strlen (buf));
 }
 
 void
@@ -204,9 +202,7 @@ xnd_ckptfile_exists (int dirfd, u32 xnd_pid)
 
   snprintf (buf, sizeof (buf), XND_CKPTFILE_FMT, xnd_pid);
   if (faccessat (dirfd, buf, F_OK, 0) == 0)
-    {
-      return true;
-    }
+    return true;
 
   return false;
 }
@@ -218,9 +214,7 @@ xnd_compressed_ckpt_exists (int dirfd, u32 xnd_pid)
 
   snprintf (buf, sizeof (buf), XND_COMPRESSED_CKPT_FMT, xnd_pid);
   if (faccessat (dirfd, buf, F_OK, 0) == 0)
-    {
-      return true;
-    }
+    return true;
 
   return false;
 }
@@ -305,16 +299,10 @@ xnd_ckptfile_write_manifest (u32 total, u32 min_xnd_pid, u32 max_xnd_pid,
 
   count = 0;
   for (id = min_xnd_pid; id <= max_xnd_pid; id++)
-    {
-      if (xnd_ckptfile_exists (dirfd, id))
-        {
-          manifest.xnd_pids[count++] = id;
-        }
-      else if (xnd_compressed_ckpt_exists (dirfd, id))
-        {
-          manifest.xnd_pids[count++] = id;
-        }
-    }
+    if (xnd_ckptfile_exists (dirfd, id))
+      manifest.xnd_pids[count++] = id;
+    else if (xnd_compressed_ckpt_exists (dirfd, id))
+      manifest.xnd_pids[count++] = id;
 
   if (count != total)
     {
@@ -335,13 +323,9 @@ xnd_ckptfile_write_manifest (u32 total, u32 min_xnd_pid, u32 max_xnd_pid,
   return 0;
 fail:
   if (dirfd != -1)
-    {
-      close (dirfd);
-    }
+    close (dirfd);
   if (fd != -1)
-    {
-      close (fd);
-    }
+    close (fd);
   return -1;
 }
 
@@ -366,9 +350,7 @@ xnd_ckptfile_extract_manifest (const char *path, struct xnd_manifest *manifest)
   return 0;
 fail:
   if (fd != -1)
-    {
-      close (fd);
-    }
+    close (fd);
   return -1;
 }
 
@@ -384,9 +366,7 @@ xnd_ckptfile_valid (const struct xnd_ckpt_header *header)
     }
 
   if (shared_cache_check (&header->shared_cache_info) < 0)
-    {
-      return false;
-    }
+    return false;
 
   if (header->entry_count > XND_CKPT_ENTRY_MAX
       || header->region_count > XND_CKPT_VM_REGION_MAX)

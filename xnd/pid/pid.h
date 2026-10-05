@@ -28,7 +28,7 @@
 #define _real_id_1(type, pid)                           \
   ({                                                    \
     extern int errno;                                   \
-    register s64 x0 __asm__ ("x0") = (s64)(pid);        \
+    register s64 x0 __asm__ ("x0") = (s64) (pid);       \
     register s64 x16 __asm__ ("x16") = SYS_get##type;   \
     register s64 x17 __asm__ ("x17");                   \
     __asm__ __volatile__ ("svc #0x80              \n"   \
@@ -45,7 +45,7 @@
   })
 
 #ifndef _real_getpid
-#define _real_getpid() _real_id_0 (pid)
+# define _real_getpid() _real_id_0 (pid)
 #endif
 
 #define _real_getgid()  _real_id_0 (gid)

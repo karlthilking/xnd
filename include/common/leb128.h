@@ -34,7 +34,7 @@ decode_sleb128 (u8 *p, s64 *value)
 
   byte = *(p - 1);
   if (shift < 64 && (byte & 0x40))
-    result |= ((s64)(~0ULL) << shift);
+    result |= ((s64) (~0ULL) << shift);
 
   if (value)
     *value = result;

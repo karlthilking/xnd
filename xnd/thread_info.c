@@ -143,9 +143,7 @@ thread_list_destroy (void)
     ckpt_thread_reap ();
 
   TAILQ_FOREACH_SAFE (t, &thread_list, ti_entry, next)
-  {
     thread_reap (t);
-  }
 
   zombie_list_destroy ();
   xnd_tlv_fini ();
@@ -227,13 +225,9 @@ thread_list_atfork_prepare (void)
   xpthread_mutex_lock (&ckpt_thread.ti_lock);
 
   TAILQ_FOREACH (t, &thread_list, ti_entry)
-  {
     xpthread_mutex_lock (&t->ti_lock);
-  }
   TAILQ_FOREACH (t, &zombie_list, ti_entry)
-  {
     xpthread_mutex_lock (&t->ti_lock);
-  }
 }
 
 /*
@@ -256,15 +250,15 @@ thread_list_atfork_child (void)
 	 * thread descriptor and any associated resources.
 	 */
   TAILQ_FOREACH_SAFE (t, &thread_list, ti_entry, next)
-  {
-    xpthread_mutex_unlock (&t->ti_lock);
-    thread_reap (t);
-  }
+    {
+      xpthread_mutex_unlock (&t->ti_lock);
+      thread_reap (t);
+    }
   TAILQ_FOREACH_SAFE (t, &zombie_list, ti_entry, next)
-  {
-    xpthread_mutex_unlock (&t->ti_lock);
-    thread_reap (t);
-  }
+    {
+      xpthread_mutex_unlock (&t->ti_lock);
+      thread_reap (t);
+    }
 
   xpthread_mutex_unlock (&ckpt_thread.ti_lock);
   xpthread_mutex_unlock (&ckpt_mtx);
@@ -313,13 +307,9 @@ thread_list_atfork_parent (void)
   struct thread_info *t;
 
   TAILQ_FOREACH (t, &zombie_list, ti_entry)
-  {
     xpthread_mutex_unlock (&t->ti_lock);
-  }
   TAILQ_FOREACH (t, &thread_list, ti_entry)
-  {
     xpthread_mutex_unlock (&t->ti_lock);
-  }
 
   xpthread_mutex_unlock (&ckpt_thread.ti_lock);
   xpthread_mutex_unlock (&ckpt_mtx);
@@ -333,13 +323,9 @@ thread_list_atfork_failed (void)
   struct thread_info *t;
 
   TAILQ_FOREACH (t, &zombie_list, ti_entry)
-  {
     xpthread_mutex_unlock (&t->ti_lock);
-  }
   TAILQ_FOREACH (t, &thread_list, ti_entry)
-  {
     xpthread_mutex_unlock (&t->ti_lock);
-  }
 
   xpthread_mutex_unlock (&ckpt_thread.ti_lock);
   xpthread_mutex_unlock (&ckpt_mtx);
@@ -359,9 +345,7 @@ zombie_list_destroy (void)
   struct thread_info *t, *next;
 
   TAILQ_FOREACH_SAFE (t, &zombie_list, ti_entry, next)
-  {
     thread_reap (t);
-  }
 }
 
 static inline void
@@ -383,10 +367,10 @@ zombie_list_filter (void)
 
   zombie_list_acquire ();
   TAILQ_FOREACH_SAFE (t, &zombie_list, ti_entry, next)
-  {
-    if (thread_reapable (t))
-      zombie_list_remove (t);
-  }
+    {
+      if (thread_reapable (t))
+        zombie_list_remove (t);
+    }
   zombie_list_release ();
 }
 
@@ -536,7 +520,7 @@ static void
 thread_fini (void *arg)
 {
   bool ok;
-  struct thread_info *self = (struct thread_info *)arg;
+  struct thread_info *self = (struct thread_info *) arg;
 
   do
     {
@@ -571,10 +555,10 @@ thread_list_find_pthread (struct thread_list *list, pthread_t p)
   struct thread_info *t;
 
   TAILQ_FOREACH (t, list, ti_entry)
-  {
-    if (t->ti_self == p)
-      return t;
-  }
+    {
+      if (t->ti_self == p)
+        return t;
+    }
 
   return NULL;
 }
@@ -857,9 +841,7 @@ barrier_arrival_wait (void)
 {
   xpthread_mutex_lock (&ckpt_mtx);
   while (barrier_arrived < barrier_expected)
-    {
-      xpthread_cond_wait (&cond_arrived, &ckpt_mtx);
-    }
+    xpthread_cond_wait (&cond_arrived, &ckpt_mtx);
   xpthread_mutex_unlock (&ckpt_mtx);
 }
 
@@ -912,62 +894,62 @@ try_suspend_threads (int ckptsig, int *count)
 
   thread_list_acquire ();
   TAILQ_FOREACH_SAFE (t, &thread_list, ti_entry, next)
-  {
-    if (__xnd_unlikely (t->ti_ckpt_thread))
-      {
-        xnd_warn ("checkpoint thread in thread list\n");
-        thread_list_remove (t);
-        continue;
-      }
+    {
+      if (__xnd_unlikely (t->ti_ckpt_thread))
+        {
+          xnd_warn ("checkpoint thread in thread list\n");
+          thread_list_remove (t);
+          continue;
+        }
 
-    sig = 0;
-    state = xnd_atomic_load (&t->ti_state, acquire);
-    switch (state)
-      {
-      case TS_RUNNING:
-        sig = ckptsig;
-        hit =
-            xnd_atomic_cmpxchg_weak_acq_rel (&t->ti_state, state, TS_SIGNALED);
-        if (!hit)
-          {
-            retry = true;
-            break;
-          }
-        fallthrough;
-      case TS_SIGNALED:
-        /*
+      sig = 0;
+      state = xnd_atomic_load (&t->ti_state, acquire);
+      switch (state)
+        {
+        case TS_RUNNING:
+          sig = ckptsig;
+          hit = xnd_atomic_cmpxchg_weak_acq_rel (&t->ti_state, state,
+                                                 TS_SIGNALED);
+          if (!hit)
+            {
+              retry = true;
+              break;
+            }
+          fallthrough;
+        case TS_SIGNALED:
+          /*
 			 * state = TS_RUNNING -> sig = ckptsig
 			 * state = TS_SIGNALED -> sig = 0
 			 */
-        err = pthread_kill (t->ti_self, sig);
-        if (err == ESRCH)
-          {
-            thread_list_remove (t);
-            continue;
-          }
-        else if (err != 0)
-          {
-            xnd_strerror ("pthread_kill", err);
-          }
-        fallthrough;
-      case TS_UNSAFE:
-      case TS_EMBRYO:
-      case TS_RUNNABLE:
-        retry = true;
-        break;
-      case TS_SUSPENDED:
-      case TS_SUSPENDING:
-        nsuspended++;
-        break;
-      case TS_RECLAIMED:
-        thread_list_remove (t);
-        break;
-      case TS_ZOMBIE:
-        break;
-      default:
-        unreachable ();
-      }
-  }
+          err = pthread_kill (t->ti_self, sig);
+          if (err == ESRCH)
+            {
+              thread_list_remove (t);
+              continue;
+            }
+          else if (err != 0)
+            {
+              xnd_strerror ("pthread_kill", err);
+            }
+          fallthrough;
+        case TS_UNSAFE:
+        case TS_EMBRYO:
+        case TS_RUNNABLE:
+          retry = true;
+          break;
+        case TS_SUSPENDED:
+        case TS_SUSPENDING:
+          nsuspended++;
+          break;
+        case TS_RECLAIMED:
+          thread_list_remove (t);
+          break;
+        case TS_ZOMBIE:
+          break;
+        default:
+          unreachable ();
+        }
+    }
   thread_list_release ();
 
   *count = nsuspended;
@@ -1016,16 +998,16 @@ restore_threads (void)
   mask = ckpt_thread.ti_siglist;
 
   TAILQ_FOREACH (t, &thread_list, ti_entry)
-  {
-    barrier_expected++;
-    sigandset (&list, &mask, &t->ti_siglist), mask = list;
-    /* workqueue threads are restored independently of normal user
+    {
+      barrier_expected++;
+      sigandset (&list, &mask, &t->ti_siglist), mask = list;
+      /* workqueue threads are restored independently of normal user
 	 threads via workq_restore () called in ckpt_thread_work () */
-    if (t->ti_wq_thread)
-      continue;
-    attrp = (t->ti_joinable ? NULL : &attr);
-    xpthread_create (&p, attrp, thread_restart, t);
-  }
+      if (t->ti_wq_thread)
+        continue;
+      attrp = (t->ti_joinable ? NULL : &attr);
+      xpthread_create (&p, attrp, thread_restart, t);
+    }
 
   /* p_siglist is the intersection of every thread's set of
      pending signals, informing us of which pending signals
@@ -1049,26 +1031,26 @@ wait_for_exiting_threads (void)
       exiting = 0;
       exited = 0;
       TAILQ_FOREACH_SAFE (t, &thread_list, ti_entry, next)
-      {
-        state = xnd_atomic_load (&t->ti_state, relaxed);
-        switch (state)
-          {
-          case TS_RECLAIMED:
-            thread_list_remove (t);
-            break;
-          case TS_ZOMBIE:
-            exiting++;
-            err = pthread_kill (t->ti_self, 0);
-            if (err == ESRCH)
-              {
-                exited++;
-                thread_list_remove (t);
-              }
-            break;
-          default:
-            break;
-          }
-      }
+        {
+          state = xnd_atomic_load (&t->ti_state, relaxed);
+          switch (state)
+            {
+            case TS_RECLAIMED:
+              thread_list_remove (t);
+              break;
+            case TS_ZOMBIE:
+              exiting++;
+              err = pthread_kill (t->ti_self, 0);
+              if (err == ESRCH)
+                {
+                  exited++;
+                  thread_list_remove (t);
+                }
+              break;
+            default:
+              break;
+            }
+        }
 
       usleep (50);
     }
@@ -1084,15 +1066,15 @@ prewake_joiner_threads (void)
 
   zombie_list_acquire ();
   TAILQ_FOREACH (t, &zombie_list, ti_entry)
-  {
-    xpthread_mutex_lock (&t->ti_lock);
-    if (t->ti_joiner != NULL)
-      {
-        joiner = t->ti_joiner->ti_self;
-        pthread_cond_signal_thread_np (&t->ti_cond, joiner);
-      }
-    xpthread_mutex_unlock (&t->ti_lock);
-  }
+    {
+      xpthread_mutex_lock (&t->ti_lock);
+      if (t->ti_joiner != NULL)
+        {
+          joiner = t->ti_joiner->ti_self;
+          pthread_cond_signal_thread_np (&t->ti_cond, joiner);
+        }
+      xpthread_mutex_unlock (&t->ti_lock);
+    }
   zombie_list_release ();
 }
 
@@ -1137,7 +1119,7 @@ thread_sighandler (int sig, siginfo_t *info, void *uctx)
 
   /* Save state and transition to suspended */
   thread_save_tls ();
-  thread_save_sig_state ((ucontext_t *)uctx);
+  thread_save_sig_state ((ucontext_t *) uctx);
 
   WRITE_ONCE (is_restart, false);
   getcontext (&myself->ti_uctx);
@@ -1210,7 +1192,7 @@ thread_start (void *arg)
   xnd_atomic_store (&_xnd_is_threaded, true, relaxed);
 
   xnd_tlv_init ();
-  myself = (struct thread_info *)arg;
+  myself = (struct thread_info *) arg;
 
   myself->ti_self = pthread_self ();
   myself->ti_kport = mach_thread_self ();
@@ -1243,7 +1225,7 @@ thread_start (void *arg)
 void *
 thread_restart (void *thread)
 {
-  struct thread_info *t = (struct thread_info *)thread;
+  struct thread_info *t = (struct thread_info *) thread;
 
   /* Restore thread-local storage first */
   thread_restore_tls (t);
@@ -1300,7 +1282,7 @@ thread_restore_tls (struct thread_info *t)
   u64 *tidaddr;
   pthread_t self;
 
-  _thread_set_tsd_base ((void *)t->ti_tsdbase);
+  _thread_set_tsd_base ((void *) t->ti_tsdbase);
 
   tidaddr = tsd_relative_access (u64, TSD_THREADID_OFFSET);
   *tidaddr = t->ti_tid;
@@ -1349,7 +1331,7 @@ thread_restore_tls (struct thread_info *t)
 static void
 thread_restore_context (void)
 {
-  u64 *fp = (u64 *)get_ucontext_fp (&myself->ti_uctx);
+  u64 *fp = (u64 *) get_ucontext_fp (&myself->ti_uctx);
 
   ptrauth_resign_frames (fp);
   xnd_setcontext (&myself->ti_uctx);

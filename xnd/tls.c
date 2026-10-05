@@ -17,14 +17,14 @@ void
 pthread_ptr_munge_save (void)
 {
   pthread_t self = pthread_self ();
-  _pthread_ptr_munge_token = ((uintptr_t)self ^ self->__sig);
+  _pthread_ptr_munge_token = ((uintptr_t) self ^ self->__sig);
 }
 
 void
 pthread_ptr_munge_restore (void)
 {
   pthread_t self = tsd_getspecific (__TSD_THREAD_SELF);
-  self->__sig = ((uintptr_t)self ^ _pthread_ptr_munge_token);
+  self->__sig = ((uintptr_t) self ^ _pthread_ptr_munge_token);
   tsd_setspecific (__TSD_PTR_MUNGE, _pthread_ptr_munge_token);
 }
 
@@ -37,7 +37,7 @@ void
 xnd_tlv_init (void)
 {
   xpthread_setspecific (tlv_flag_key, NULL);
-  (void)thread_self ();
+  (void) thread_self ();
   xpthread_setspecific (tlv_flag_key, XND_TLV_INIT);
 }
 
@@ -65,7 +65,7 @@ check_tsd_pthread_struct_offset (void)
   bool ok;
 
   tsd = self_tsd_base ();
-  self = (uintptr_t)pthread_self ();
+  self = (uintptr_t) pthread_self ();
 
   ok = ((self + PTHREAD_TSD_OFFSET == tsd)
         && (tsd + TSD_PTHREAD_OFFSET == self));
@@ -86,11 +86,11 @@ check_tsd_threadid_offset (void)
   bool ok;
 
   tsd = self_tsd_base ();
-  self = (uintptr_t)pthread_self ();
+  self = (uintptr_t) pthread_self ();
 
   tid = __thread_selfid ();
-  tsd_tid = *(u64 *)(tsd + TSD_THREADID_OFFSET);
-  pthread_tid = *(u64 *)(self + PTHREAD_THREADID_OFFSET);
+  tsd_tid = *(u64 *) (tsd + TSD_THREADID_OFFSET);
+  pthread_tid = *(u64 *) (self + PTHREAD_THREADID_OFFSET);
 
   ok = ((tsd_tid == tid) && (pthread_tid == tid));
 #if DEBUG || DEVELOPMENT
@@ -112,7 +112,7 @@ check_pthread_mutex_tid_offset (void)
   pthread_mutex_init (&mutex, NULL);
   pthread_mutex_lock (&mutex);
 
-  tidaddr = (u64 *)((uintptr_t)&mutex + PTHREAD_MUTEX_TID_OFFSET);
+  tidaddr = (u64 *) ((uintptr_t) &mutex + PTHREAD_MUTEX_TID_OFFSET);
   ok = (*tidaddr == tid);
 
   pthread_mutex_unlock (&mutex);

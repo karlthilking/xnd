@@ -24,9 +24,7 @@ do_compress (int dstfd, int srcfd)
 
   err = deflateInit (&stream, Z_BEST_SPEED);
   if (err != Z_OK)
-    {
-      return -1;
-    }
+    return -1;
 
   do
     {
@@ -56,9 +54,7 @@ do_compress (int dstfd, int srcfd)
           have = CHUNK - stream.avail_out;
           bytes = writeall (dstfd, outbuf, have);
           if (bytes != have)
-            {
-              goto bad;
-            }
+            goto bad;
         }
       while (stream.avail_out == 0);
       xnd_assert (stream.avail_in == 0);
@@ -89,9 +85,7 @@ do_decompress (int dstfd, int srcfd)
 
   err = inflateInit (&stream);
   if (err != Z_OK)
-    {
-      return -1;
-    }
+    return -1;
 
   do
     {
@@ -129,9 +123,7 @@ do_decompress (int dstfd, int srcfd)
           have = CHUNK - stream.avail_out;
           bytes = writeall (dstfd, outbuf, have);
           if (bytes != have)
-            {
-              goto bad;
-            }
+            goto bad;
         }
       while (stream.avail_out == 0);
     }
@@ -173,9 +165,7 @@ xnd_compress_ckpt (int dirfd, char *ckptfile)
     }
 
   if (unlinkat (dirfd, ckptfile, 0) != 0)
-    {
-      xnd_warn ("unlinkat: %s\n", strerror (errno));
-    }
+    xnd_warn ("unlinkat: %s\n", strerror (errno));
 
   close (srcfd);
   close (dstfd);

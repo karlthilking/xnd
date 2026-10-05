@@ -13,7 +13,7 @@ typedef uint32_t xnd_spinlock_t;
 #define xnd_spinlock_yield() thread_switch (THREAD_NULL, SWITCH_OPTION_NONE, 0)
 
 #define xnd_spinlock_lock(sp)                                \
-  ((void)({                                                  \
+  ((void) ({                                                 \
     if (__xnd_unlikely (atomic_xchg_acquire ((sp), 1) != 0)) \
       {                                                      \
         do                                                   \
@@ -27,7 +27,7 @@ typedef uint32_t xnd_spinlock_t;
   }))
 
 #define xnd_spinlock_unlock(sp)              \
-  ((void)({                                  \
+  ((void) ({                                 \
     struct xnd_spinlock *__sp = (sp);        \
     atomic_store_release (&__sp->sp_val, 0); \
   }))

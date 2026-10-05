@@ -8,10 +8,10 @@
 static __always_inline ssize_t
 sys_read (int fd, void *buf, size_t nbyte)
 {
-  register s64 x0 __asm__ ("x0") = (s64)fd;
-  register u64 x1 __asm__ ("x1") = (u64)buf;
-  register u64 x2 __asm__ ("x2") = (u64)nbyte;
-  register s64 x16 __asm__ ("x16") = (s64)SYS_read;
+  register s64 x0 __asm__ ("x0") = (s64) fd;
+  register u64 x1 __asm__ ("x1") = (u64) buf;
+  register u64 x2 __asm__ ("x2") = (u64) nbyte;
+  register s64 x16 __asm__ ("x16") = (s64) SYS_read;
   register u64 x17 __asm__ ("x17");
 
   asm volatile ("svc #0x80		\n"
@@ -26,16 +26,16 @@ sys_read (int fd, void *buf, size_t nbyte)
       x0 = -1;
     }
 
-  return (ssize_t)x0;
+  return (ssize_t) x0;
 }
 
 static __always_inline ssize_t
 sys_write (int fd, const void *buf, size_t nbyte)
 {
-  register s64 x0 __asm__ ("x0") = (s64)fd;
-  register u64 x1 __asm__ ("x1") = (u64)buf;
-  register u64 x2 __asm__ ("x2") = (u64)nbyte;
-  register s64 x16 __asm__ ("x16") = (s64)SYS_write;
+  register s64 x0 __asm__ ("x0") = (s64) fd;
+  register u64 x1 __asm__ ("x1") = (u64) buf;
+  register u64 x2 __asm__ ("x2") = (u64) nbyte;
+  register s64 x16 __asm__ ("x16") = (s64) SYS_write;
   register u64 x17 __asm__ ("x17");
 
   asm volatile ("svc #0x80		\n"
@@ -50,7 +50,7 @@ sys_write (int fd, const void *buf, size_t nbyte)
       x0 = -1;
     }
 
-  return (ssize_t)x0;
+  return (ssize_t) x0;
 }
 
 static __always_inline ssize_t

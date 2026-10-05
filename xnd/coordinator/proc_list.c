@@ -22,13 +22,11 @@ proc_list_destroy (struct proc_list *list)
   struct proc *p, *next;
 
   proc_foreach_safe (p, next, list)
-  {
-    if (p->cleanup)
-      {
+    {
+      if (p->cleanup)
         p->cleanup (p);
-      }
-    free (p);
-  }
+      free (p);
+    }
 
   free (list);
 }
@@ -41,9 +39,7 @@ proc_list_add (struct proc_list *list, struct proc *p)
   list->head = p;
 
   if (p->next)
-    {
-      p->next->prev = p;
-    }
+    p->next->prev = p;
 
   list->size++;
 }
@@ -63,14 +59,10 @@ proc_list_remove (struct proc_list *list, struct proc *p)
     }
 
   if (p->next)
-    {
-      p->next->prev = p->prev;
-    }
+    p->next->prev = p->prev;
 
   if (p->cleanup)
-    {
-      p->cleanup (p);
-    }
+    p->cleanup (p);
 
   free (p);
   list->size--;
@@ -83,13 +75,11 @@ proc_list_filter (struct proc_list *list)
   struct proc *p, *next;
 
   proc_foreach_safe (p, next, list)
-  {
-    err = kill (p->real_pid, 0);
-    if (err != 0 && errno == ESRCH)
-      {
+    {
+      err = kill (p->real_pid, 0);
+      if (err != 0 && errno == ESRCH)
         proc_list_remove (list, p);
-      }
-  }
+    }
 }
 
 struct proc *
@@ -98,12 +88,10 @@ proc_list_find_by_real_pid (struct proc_list *list, pid_t real)
   struct proc *p;
 
   proc_foreach (p, list)
-  {
-    if (p->real_pid == real)
-      {
+    {
+      if (p->real_pid == real)
         return p;
-      }
-  }
+    }
 
   return NULL;
 }
@@ -114,12 +102,10 @@ proc_list_find_by_virt_pid (struct proc_list *list, pid_t virt)
   struct proc *p;
 
   proc_foreach (p, list)
-  {
-    if (p->virt_pid == virt)
-      {
+    {
+      if (p->virt_pid == virt)
         return p;
-      }
-  }
+    }
 
   return NULL;
 }
@@ -130,12 +116,10 @@ proc_list_find_by_xnd_pid (struct proc_list *list, u32 xnd_pid)
   struct proc *p;
 
   proc_foreach (p, list)
-  {
-    if (p->xnd_pid == xnd_pid)
-      {
+    {
+      if (p->xnd_pid == xnd_pid)
         return p;
-      }
-  }
+    }
 
   return NULL;
 }
@@ -146,12 +130,10 @@ proc_list_real_to_virt (struct proc_list *list, pid_t real)
   struct proc *p;
 
   proc_foreach (p, list)
-  {
-    if (p->real_pid == real)
-      {
+    {
+      if (p->real_pid == real)
         return p->virt_pid;
-      }
-  }
+    }
 
   return -1;
 }
@@ -162,12 +144,10 @@ proc_list_virt_to_real (struct proc_list *list, pid_t virt)
   struct proc *p;
 
   proc_foreach (p, list)
-  {
-    if (p->virt_pid == virt)
-      {
+    {
+      if (p->virt_pid == virt)
         return p->real_pid;
-      }
-  }
+    }
 
   return -1;
 }

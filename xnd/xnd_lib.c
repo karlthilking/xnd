@@ -137,7 +137,7 @@ xnd_checkpoint (ucontext_t *uctx)
   header.xnd_ppid = xnd_ppid;
   header.xnd_pgid = xnd_pgid;
   header.num_peers = num_peers;
-  header.is_root_of_tree = (u32)is_root_of_tree;
+  header.is_root_of_tree = (u32) is_root_of_tree;
 
   nregions = ckpt_vm_save_regions (regions);
   if (nregions > XND_CKPT_VM_REGION_MAX)

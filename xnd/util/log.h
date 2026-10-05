@@ -25,19 +25,19 @@ enum xnd_log_level
 #define XND_MAX_LOG_LEVEL XND_TRACING
 
 #if DEVELOPMENT || DEBUG
-#define XND_DEFAULT_LOG_LEVEL XND_TRACING
+# define XND_DEFAULT_LOG_LEVEL XND_TRACING
 #else
-#define XND_DEFAULT_LOG_LEVEL XND_WARNINGS
+# define XND_DEFAULT_LOG_LEVEL XND_WARNINGS
 #endif
 
 #ifndef _real_getpid
-#define _real_getpid()                                        \
-  ({                                                          \
+# define _real_getpid()                                       \
+   ({                                                         \
     register s64 x0 __asm__ ("x0");                           \
-    register s64 x16 __asm__ ("x16") = (s64)SYS_getpid;       \
+    register s64 x16 __asm__ ("x16") = (s64) SYS_getpid;      \
     __asm__ __volatile__ ("svc #0x80" : "=r"(x0) : "r"(x16)); \
     (pid_t) x0;                                               \
-  })
+   })
 #endif
 
 #define __XND_FILE__                                                         \
@@ -80,9 +80,9 @@ enum xnd_log_level
 #define xnd_abort()                                                    \
   do                                                                   \
     {                                                                  \
-      register s64 x0 __asm__ ("x0") = (s64)_real_getpid ();           \
-      register s64 x1 __asm__ ("x1") = (s64)SIGABRT;                   \
-      register s64 x16 __asm__ ("x16") = (s64)SYS_kill;                \
+      register s64 x0 __asm__ ("x0") = (s64) _real_getpid ();          \
+      register s64 x1 __asm__ ("x1") = (s64) SIGABRT;                  \
+      register s64 x16 __asm__ ("x16") = (s64) SYS_kill;               \
       __asm__ __volatile__ ("svc #0x80" ::"r"(x0), "r"(x1), "r"(x16)); \
       unreachable ();                                                  \
     }                                                                  \
@@ -97,18 +97,18 @@ enum xnd_log_level
   while (0)
 
 #if DEBUG || DEVELOPMENT
-#define xnd_assert(expr)                                \
-  do                                                    \
-    {                                                   \
-      if (__xnd_unlikely (!(expr)))                     \
-        {                                               \
-          xnd_error ("assertion failure: %s\n", #expr); \
-          xnd_abort ();                                 \
-        }                                               \
-    }                                                   \
-  while (0)
+# define xnd_assert(expr)                                \
+   do                                                    \
+     {                                                   \
+       if (__xnd_unlikely (!(expr)))                     \
+         {                                               \
+           xnd_error ("assertion failure: %s\n", #expr); \
+           xnd_abort ();                                 \
+         }                                               \
+     }                                                   \
+   while (0)
 #else /* !(DEBUG || DEVELOPMENT) */
-#define xnd_assert(expr) ((void)0)
+# define xnd_assert(expr) ((void) 0)
 #endif
 
 #ifdef __cplusplus

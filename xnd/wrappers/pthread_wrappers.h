@@ -19,7 +19,7 @@ extern u64 __thread_selfid (void);
 extern int __disable_threadsignal (int);
 
 int pthread_create_hook (pthread_t *, const pthread_attr_t *,
-                         void *(*)(void *), void *);
+                         void *(*) (void *), void *);
 int pthread_join_hook (pthread_t, void **);
 int pthread_detach_hook (pthread_t);
 int pthread_kill_hook (pthread_t, int);

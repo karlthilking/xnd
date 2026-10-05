@@ -8,7 +8,7 @@
 int
 xnd_exe_path (char *out, size_t outlen)
 {
-  u32 size = (u32)outlen;
+  u32 size = (u32) outlen;
 
   if (_NSGetExecutablePath (out, &size) < 0)
     return -1;

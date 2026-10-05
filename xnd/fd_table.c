@@ -114,7 +114,7 @@ dir_save (int fd)
     }
   else
     {
-      src->offset = (off_t)tell;
+      src->offset = (off_t) tell;
     }
 
   if ((ret = fcntl (fd, F_GETFD)) < 0)
@@ -154,7 +154,7 @@ dir_restore (int fd)
       close (ret);
     }
 
-  seekdir (src->dirp, (long)src->offset);
+  seekdir (src->dirp, (long) src->offset);
   src->root = fd;
   src->state = FD_STATE_RESTORED;
   return 0;
@@ -258,13 +258,10 @@ fd_table_restore (void)
               goto bad;
             }
         }
-      else
+      else if (fd_ops[table[fd]->type].restore (fd) < 0)
         {
-          if (fd_ops[table[fd]->type].restore (fd) < 0)
-            {
-              xnd_error ("Error restoring fd %d\n", fd);
-              goto bad;
-            }
+          xnd_error ("Error restoring fd %d\n", fd);
+          goto bad;
         }
     }
 
@@ -273,10 +270,8 @@ fd_table_restore (void)
          * originally
          */
   for (fd = 0; fd < 3; fd++)
-    {
-      if (table[fd] == NULL)
-        close (fd);
-    }
+    if (table[fd] == NULL)
+      close (fd);
   return;
 bad:
   xnd_error ("%s failed, aborting...\n", __func__);

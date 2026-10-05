@@ -10,7 +10,7 @@
 #include <sys/types.h>
 
 #ifndef NSEC_PER_USEC
-#define NSEC_PER_USEC (1000L)
+# define NSEC_PER_USEC (1000L)
 #endif
 
 #define INITIAL_VIRT_PID 1

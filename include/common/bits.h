@@ -16,8 +16,8 @@
 #define BITS_PER_BYTE       8
 #define BITS_PER_TYPE(type) (sizeof (type) * BITS_PER_BYTE)
 
-#define test_bit(n, a)  ((a)[n / 8] & ((typeof ((a)[0]))(1) << ((n) % 8)))
-#define set_bit(n, a)   ((a)[n / 8] |= ((typeof ((a)[0]))(1) << ((n) % 8)))
-#define clear_bit(n, a) ((a)[n / 8] &= ~((typeof ((a)[0]))(1) << ((n) % 8)))
+#define test_bit(n, a)  ((a)[n / 8] & ((typeof ((a)[0])) (1) << ((n) % 8)))
+#define set_bit(n, a)   ((a)[n / 8] |= ((typeof ((a)[0])) (1) << ((n) % 8)))
+#define clear_bit(n, a) ((a)[n / 8] &= ~((typeof ((a)[0])) (1) << ((n) % 8)))
 
 #endif /* BITS_H */

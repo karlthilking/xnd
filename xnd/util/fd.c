@@ -11,9 +11,7 @@ xnd_fd_available (int fd)
 
   err = fcntl (fd, F_GETFL, 0);
   if (err == -1 && errno == EBADF)
-    {
-      return true;
-    }
+    return true;
 
   return false;
 }

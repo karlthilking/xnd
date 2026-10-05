@@ -44,7 +44,7 @@ ckpt_interval_used (void)
 static inline u64
 ckpt_interval_nsec (void)
 {
-  return (u64)coord_info.ckpt_interval * NSEC_PER_SEC;
+  return (u64) coord_info.ckpt_interval * NSEC_PER_SEC;
 }
 
 static bool
@@ -198,7 +198,7 @@ coord_init (void)
   strncpy (addr.sun_path, XND_COORD_PATH, sizeof (addr.sun_path) - 1);
 
   xnd_assert (access (XND_COORD_PATH, F_OK) != 0);
-  err = bind (fd, (struct sockaddr *)&addr, sizeof (addr));
+  err = bind (fd, (struct sockaddr *) &addr, sizeof (addr));
   if (err != 0)
     {
       xnd_error ("bind: %s\n", strerror (errno));
@@ -240,13 +240,9 @@ __noreturn void
 coord_exit (int status)
 {
   if (status == COORD_EXIT_SUCCESS)
-    {
-      xnd_trace ("Coordinator exiting: COORD_EXIT_SUCCESS\n");
-    }
+    xnd_trace ("Coordinator exiting: COORD_EXIT_SUCCESS\n");
   else if (status == COORD_EXIT_FAILURE)
-    {
-      xnd_trace ("Coordinator exiting: COORD_EXIT_FAILURE\n");
-    }
+    xnd_trace ("Coordinator exiting: COORD_EXIT_FAILURE\n");
 
   coord_cleanup ();
   exit (status);
@@ -274,9 +270,7 @@ coord_handler (int sig)
 
   xnd_trace ("Coordinator sent signal: %d\n", sig);
   proc_foreach (p, proc_list)
-  {
     kill (p->real_pid, sig);
-  }
 
   coord_cleanup ();
   kill (getpid (), sig);
@@ -288,9 +282,7 @@ coord_broadcast_kill (void)
   struct proc *p;
 
   proc_foreach (p, proc_list)
-  {
     kill (p->real_pid, SIGKILL);
-  }
 
   coord_exit (COORD_EXIT_SUCCESS);
 }
@@ -413,14 +405,14 @@ coord_broadcast_msg (struct xnd_msg *msg)
   struct proc *p, *next;
 
   proc_foreach_safe (p, next, proc_list)
-  {
-    ret = coord_send_msg (p->fd, msg);
-    if (ret != 0)
-      {
-        xnd_warn ("process %d exited\n", p->real_pid);
-        proc_list_remove (proc_list, p);
-      }
-  }
+    {
+      ret = coord_send_msg (p->fd, msg);
+      if (ret != 0)
+        {
+          xnd_warn ("process %d exited\n", p->real_pid);
+          proc_list_remove (proc_list, p);
+        }
+    }
 }
 
 int
@@ -457,29 +449,29 @@ coord_release_barrier (enum coord_barrier_type type)
     }
 
   proc_foreach (p, proc_list)
-  {
-    xnd_assert (p->state == expected);
-    /**
+    {
+      xnd_assert (p->state == expected);
+      /**
                  * If pre-checkpoint, it is necessary to include num_peers
                  * (number of processes in the checkpointed computation)
                  * and is_root_of_tree (root of process tree) information
                  * to inform each process.
                  */
-    if (type == COORD_BARRIER_PRECKPT)
-      {
-        msg.num_peers = coord_info.num_peers;
-        msg.is_root_of_tree = p->is_root_of_tree;
-      }
+      if (type == COORD_BARRIER_PRECKPT)
+        {
+          msg.num_peers = coord_info.num_peers;
+          msg.is_root_of_tree = p->is_root_of_tree;
+        }
 
-    err = coord_send_msg (p->fd, &msg);
-    if (err != 0)
-      {
-        xnd_error ("Failed to send %s to process %d\n",
-                   xnd_msghdr_string (msg.hdr), p->real_pid);
-        return -1;
-      }
-    p->state = next;
-  }
+      err = coord_send_msg (p->fd, &msg);
+      if (err != 0)
+        {
+          xnd_error ("Failed to send %s to process %d\n",
+                     xnd_msghdr_string (msg.hdr), p->real_pid);
+          return -1;
+        }
+      p->state = next;
+    }
 
   return 0;
 }
@@ -498,16 +490,16 @@ coord_collective_prepare (enum coord_comm_type type)
       total = 0;
       FD_ZERO (&set);
       proc_foreach_safe (p, next, proc_list)
-      {
-        if (proc_exited (p))
-          {
-            proc_list_remove (proc_list, p);
-            continue;
-          }
-        total++;
-        FD_SET (p->fd, &set);
-        nfds = max (nfds, p->fd + 1);
-      }
+        {
+          if (proc_exited (p))
+            {
+              proc_list_remove (proc_list, p);
+              continue;
+            }
+          total++;
+          FD_SET (p->fd, &set);
+          nfds = max (nfds, p->fd + 1);
+        }
 
       if (total == 0)
         return 0;
@@ -547,48 +539,46 @@ coord_wait_for_msg (void)
   nfds = 0;
   FD_ZERO (&set);
   proc_foreach (p, proc_list)
-  {
-    nfds = max (nfds, p->fd + 1);
-    FD_SET (p->fd, &set);
-    if (p->oob_fd != -1)
-      {
-        nfds = max (nfds, p->oob_fd + 1);
-        FD_SET (p->oob_fd, &set);
-      }
-  }
+    {
+      nfds = max (nfds, p->fd + 1);
+      FD_SET (p->fd, &set);
+      if (p->oob_fd != -1)
+        {
+          nfds = max (nfds, p->oob_fd + 1);
+          FD_SET (p->oob_fd, &set);
+        }
+    }
 
   if ((err = select (nfds, &set, NULL, NULL, &tv)) <= 0)
     {
       if (err == -1)
-        {
-          xnd_error ("select: %s\n", strerror (errno));
-        }
+        xnd_error ("select: %s\n", strerror (errno));
       return;
     }
 
   proc_foreach_safe (p, next, proc_list)
-  {
-    if (FD_ISSET (p->fd, &set))
-      {
-        err = coord_recv_msg (p->fd, &msg);
-        if (err != 0)
-          {
-            proc_list_remove (proc_list, p);
-            continue;
-          }
-        coord_handle_msg (p->fd, &msg);
-      }
-    if (p->oob_fd != -1 && FD_ISSET (p->oob_fd, &set))
-      {
-        err = coord_recv_msg (p->oob_fd, &msg);
-        if (err != 0)
-          {
-            proc_list_remove (proc_list, p);
-            continue;
-          }
-        coord_handle_msg (p->oob_fd, &msg);
-      }
-  }
+    {
+      if (FD_ISSET (p->fd, &set))
+        {
+          err = coord_recv_msg (p->fd, &msg);
+          if (err != 0)
+            {
+              proc_list_remove (proc_list, p);
+              continue;
+            }
+          coord_handle_msg (p->fd, &msg);
+        }
+      if (p->oob_fd != -1 && FD_ISSET (p->oob_fd, &set))
+        {
+          err = coord_recv_msg (p->oob_fd, &msg);
+          if (err != 0)
+            {
+              proc_list_remove (proc_list, p);
+              continue;
+            }
+          coord_handle_msg (p->oob_fd, &msg);
+        }
+    }
 }
 
 void
@@ -798,10 +788,10 @@ coord_write_ckpt_manifest (void)
   int err;
 
   proc_foreach (p, proc_list)
-  {
-    max_xnd_pid = max (p->xnd_pid, max_xnd_pid);
-    min_xnd_pid = min (p->xnd_pid, min_xnd_pid);
-  }
+    {
+      max_xnd_pid = max (p->xnd_pid, max_xnd_pid);
+      min_xnd_pid = min (p->xnd_pid, min_xnd_pid);
+    }
 
   err = xnd_ckptfile_write_manifest (coord_info.num_peers, min_xnd_pid,
                                      max_xnd_pid, coord_info.xnd_uuid,
@@ -819,17 +809,13 @@ coord_determine_roots (void)
   struct proc *p, *parent;
 
   proc_foreach (p, proc_list)
-  {
-    parent = proc_list_find_by_real_pid (proc_list, p->real_ppid);
-    if (parent)
-      {
+    {
+      parent = proc_list_find_by_real_pid (proc_list, p->real_ppid);
+      if (parent)
         p->is_root_of_tree = false;
-      }
-    else
-      {
+      else
         p->is_root_of_tree = true;
-      }
-  }
+    }
 }
 
 static bool
@@ -841,37 +827,37 @@ coord_try_suspend (int *cnt)
   struct xnd_msg resp, msg = { .hdr = XND_CKPT_REQUEST };
 
   proc_foreach_safe (p, next, proc_list)
-  {
-    alive = true;
-    switch (p->state)
-      {
-      case PROC_RUNNING:
-        ret = coord_send_msg (p->fd, &msg);
-        alive = (ret == 0);
-        if (alive)
-          p->state = PROC_RECV_CKPT_REQUEST;
-        break;
-      case PROC_RECV_CKPT_REQUEST:
-        ret = coord_recv_msg (p->fd, &resp);
-        alive = (ret == 0 && resp.hdr == XND_CKPT_READY);
-        if (alive)
-          p->state = PROC_READY_FOR_CKPT;
-        break;
-      case PROC_READY_FOR_CKPT:
-        alive = (proc_exited (p) == false);
-        if (alive)
-          ready++;
-        break;
-      default:
-        xnd_warn ("unexpected proc state: %d\n", p->state);
-        break;
-      }
+    {
+      alive = true;
+      switch (p->state)
+        {
+        case PROC_RUNNING:
+          ret = coord_send_msg (p->fd, &msg);
+          alive = (ret == 0);
+          if (alive)
+            p->state = PROC_RECV_CKPT_REQUEST;
+          break;
+        case PROC_RECV_CKPT_REQUEST:
+          ret = coord_recv_msg (p->fd, &resp);
+          alive = (ret == 0 && resp.hdr == XND_CKPT_READY);
+          if (alive)
+            p->state = PROC_READY_FOR_CKPT;
+          break;
+        case PROC_READY_FOR_CKPT:
+          alive = (proc_exited (p) == false);
+          if (alive)
+            ready++;
+          break;
+        default:
+          xnd_warn ("unexpected proc state: %d\n", p->state);
+          break;
+        }
 
-    if (alive)
-      total++;
-    else
-      proc_list_remove (proc_list, p);
-  }
+      if (alive)
+        total++;
+      else
+        proc_list_remove (proc_list, p);
+    }
 
   *cnt = total;
   return (ready != total);
@@ -913,15 +899,15 @@ coord_wait_for_ckpt_completions (void)
 
   total = 0;
   proc_foreach (p, proc_list)
-  {
-    xnd_assert (p->state == PROC_CKPT_IN_PROGRESS);
-    err = coord_recv_msg (p->fd, &msg);
-    if (err == 0 && msg.hdr == XND_CKPT_DONE)
-      {
-        p->state = PROC_CKPT_COMPLETE;
-        total++;
-      }
-  }
+    {
+      xnd_assert (p->state == PROC_CKPT_IN_PROGRESS);
+      err = coord_recv_msg (p->fd, &msg);
+      if (err == 0 && msg.hdr == XND_CKPT_DONE)
+        {
+          p->state = PROC_CKPT_COMPLETE;
+          total++;
+        }
+    }
 
   if (total != expected)
     {
@@ -1041,14 +1027,10 @@ coord_send_virt_to_real (int fd, struct xnd_msg *msg)
   struct xnd_msg resp = { .hdr = XND_COORD_ACK, .ret = XND_SUCCESS };
 
   if ((real = pid_table_virtual_to_real (virt)) != -1)
-    {
-      goto found;
-    }
+    goto found;
 
   if ((real = proc_list_virt_to_real (proc_list, virt)) != -1)
-    {
-      goto found;
-    }
+    goto found;
 
   resp.ret = XND_FAILURE;
   resp.real_pid = -1;
@@ -1067,14 +1049,10 @@ coord_send_real_to_virt (int fd, struct xnd_msg *msg)
   struct xnd_msg resp = { .hdr = XND_COORD_ACK, .ret = XND_SUCCESS };
 
   if ((virt = pid_table_real_to_virtual (real)) != -1)
-    {
-      goto found;
-    }
+    goto found;
 
   if ((virt = proc_list_real_to_virt (proc_list, real)) != -1)
-    {
-      goto found;
-    }
+    goto found;
 
   resp.ret = XND_FAILURE;
   resp.virt_pid = -1;

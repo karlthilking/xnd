@@ -70,7 +70,7 @@ restart (int fd)
       exit (XND_EXIT_FAILURE);
     }
 
-  ptrauth_resign_frames ((u64 *)get_ucontext_fp (&uctx));
+  ptrauth_resign_frames ((u64 *) get_ucontext_fp (&uctx));
   xnd_setcontext (&uctx);
 
   unreachable ();
@@ -105,7 +105,7 @@ jump (int fd)
       exit (XND_EXIT_FAILURE);
     }
 
-  sp = (void *)(addr + size);
+  sp = (void *) (addr + size);
 
   /* Switch to temporary stack and call restart function */
   asm volatile (
@@ -113,7 +113,7 @@ jump (int fd)
       "mov    x0, %[fildes]   \n"
       "blraaz %[restart]      \n"
       :
-      : [sp] "r"(sp), [fildes] "r"((long)fd), [restart] "r"(restart));
+      : [sp] "r"(sp), [fildes] "r"((long) fd), [restart] "r"(restart));
 
   unreachable ();
 }

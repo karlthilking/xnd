@@ -7,16 +7,16 @@
 #include "compiler.h"
 
 #ifdef xnd_panic
-#define xthread_die(fmt, ...) xnd_panic (fmt, ##__VA_ARGS__)
+# define xthread_die(fmt, ...) xnd_panic (fmt, ##__VA_ARGS__)
 #else
-#include <stdlib.h>
-#define xthread_die(fmt, ...)               \
-  do                                        \
-    {                                       \
-      fprintf (stderr, fmt, ##__VA_ARGS__); \
-      exit (-1);                            \
-    }                                       \
-  while (0)
+# include <stdlib.h>
+# define xthread_die(fmt, ...)               \
+   do                                        \
+     {                                       \
+       fprintf (stderr, fmt, ##__VA_ARGS__); \
+       exit (-1);                            \
+     }                                       \
+   while (0)
 #endif
 
 #define xthread(op, ...)                                           \

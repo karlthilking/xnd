@@ -12,9 +12,7 @@ first_signed_frame (u64 *fp)
   FRAME_FOR_EACH (fp)
   {
     if (PTRAUTH_SIGNED (fp[1]))
-      {
-        return fp;
-      }
+      return fp;
   }
 
   return NULL;
@@ -24,17 +22,11 @@ static __always_inline u64 *
 next_signed_frame (u64 *fp)
 {
   if (fp == NULL)
-    {
-      return NULL;
-    }
+    return NULL;
 
-  for (fp = (u64 *)fp[0]; fp != NULL; fp = (u64 *)fp[0])
-    {
-      if (PTRAUTH_SIGNED (fp[1]))
-        {
-          return fp;
-        }
-    }
+  for (fp = (u64 *) fp[0]; fp != NULL; fp = (u64 *) fp[0])
+    if (PTRAUTH_SIGNED (fp[1]))
+      return fp;
 
   return NULL;
 }
@@ -89,7 +81,7 @@ ptrauth_resign_frames (u64 *fp)
 
   FRAME_FOR_EACH_SIGNED (fp)
   {
-    sp = (u64)fp + 0x10;
+    sp = (u64) fp + 0x10;
     xnd_assert (PTRAUTH_SIGNED (fp[1]));
     PTRAUTH_XPACI (fp[1]);
     PTRAUTH_PACIB (fp[1], sp);

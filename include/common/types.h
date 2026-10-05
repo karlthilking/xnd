@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 #if __STDC_VERSION__ < 202311L
-#include <stdbool.h>
+# include <stdbool.h>
 #endif
 
 typedef int8_t s8, i8;

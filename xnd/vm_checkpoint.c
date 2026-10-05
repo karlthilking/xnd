@@ -84,7 +84,7 @@ ckpt_vm_save_regions (struct xnd_vm_region *regions)
     {
       count = VM_REGION_SUBMAP_INFO_COUNT_64;
       ret = mach_vm_region_recurse (mach_task_self (), &addr, &size, &depth,
-                                    (vm_region_recurse_info_t)&info, &count);
+                                    (vm_region_recurse_info_t) &info, &count);
 
       if (ret != KERN_SUCCESS)
         break;
@@ -100,8 +100,8 @@ ckpt_vm_save_regions (struct xnd_vm_region *regions)
         }
 
       rgn = regions + region_count;
-      rgn->start = (void *)addr;
-      rgn->size = (size_t)size;
+      rgn->start = (void *) addr;
+      rgn->size = (size_t) size;
       rgn->inherit = info.inheritance;
       rgn->prot = info.protection;
       rgn->max_prot = info.max_protection;

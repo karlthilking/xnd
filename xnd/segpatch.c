@@ -220,7 +220,7 @@ main (int argc, char *argv[])
     }
 
   image = mmap (NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  if ((void *)image == MAP_FAILED)
+  if ((void *) image == MAP_FAILED)
     {
       perror ("mmap");
       close (fd);
@@ -307,7 +307,7 @@ segcreate (void)
   struct mach_header_64 *mh;
   u8 *p;
 
-  mh = (struct mach_header_64 *)image;
+  mh = (struct mach_header_64 *) image;
   if (mh->magic != MH_MAGIC_64 || mh->filetype != MH_EXECUTE)
     {
       printf ("Bad mach-o executable: %s\n", filename);
@@ -344,7 +344,7 @@ segcreate (void)
   strncpy (sect.sectname, sectname, sizeof (sect.sectname));
   strncpy (sect.segname, segname, sizeof (sect.segname));
 
-  p = (u8 *)mh + sizeof (*mh) + mh->sizeofcmds;
+  p = (u8 *) mh + sizeof (*mh) + mh->sizeofcmds;
   memcpy (p, &seg, sizeof (seg));
   memcpy (p + sizeof (seg), &sect, sizeof (sect));
 
@@ -367,20 +367,20 @@ segedit (void)
   struct load_command *lc;
   struct segment_command_64 *seg;
   struct section_64 *sect;
-  struct mach_header_64 *mh = (struct mach_header_64 *)image;
+  struct mach_header_64 *mh = (struct mach_header_64 *) image;
   u32 cmdsize;
   u64 lcstart, offset;
   bool found = false;
 
-  lcstart = (u64)mh + sizeof (*mh);
+  lcstart = (u64) mh + sizeof (*mh);
   for (offset = 0; offset < mh->sizeofcmds; offset += cmdsize)
     {
-      lc = (struct load_command *)(lcstart + offset);
+      lc = (struct load_command *) (lcstart + offset);
       cmdsize = lc->cmdsize;
       if (lc->cmd != LC_SEGMENT_64)
         continue;
 
-      seg = (struct segment_command_64 *)lc;
+      seg = (struct segment_command_64 *) lc;
       if (strncmp (seg->segname, segname, sizeof (seg->segname)) == 0)
         {
           found = true;
@@ -394,7 +394,7 @@ segedit (void)
       return -1;
     }
 
-  sect = (struct section_64 *)((u8 *)seg + sizeof (*seg));
+  sect = (struct section_64 *) ((u8 *) seg + sizeof (*seg));
   seg->vmaddr = vmaddr;
   seg->vmsize = vmsize;
   seg->maxprot = maxprot;

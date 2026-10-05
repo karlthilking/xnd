@@ -192,7 +192,7 @@ boundary_init (void)
 static void *
 worker (void *arg)
 {
-  struct worker_args *w = (struct worker_args *)arg;
+  struct worker_args *w = (struct worker_args *) arg;
 
   while (!done)
     {

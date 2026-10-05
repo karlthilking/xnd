@@ -26,9 +26,9 @@ apply (void)
 
     for (int k = 0; k < rounds; k++)
       {
-        local += (double)((i * k) % 97);
-        local += (double)(lrand48 () % (64 >> 2));
-        local -= (double)(lrand48 () % (1 << 4));
+        local += (double) ((i * k) % 97);
+        local += (double) (lrand48 () % (64 >> 2));
+        local -= (double) (lrand48 () % (1 << 4));
         local /= 2.0f;
         local -= __builtin_bswap64 (lrand48 ()) % 1024ul;
       }

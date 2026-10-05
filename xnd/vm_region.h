@@ -65,8 +65,8 @@ struct xnd_vm_page
 #define DYLD_SHARED_CACHE_SIZE (SHARED_REGION_SIZE_ARM64)
 #define DYLD_SHARED_CACHE_END  (DYLD_SHARED_CACHE_BASE + DYLD_SHARED_CACHE_SIZE)
 #define DYLD_SHARED_CACHE_REGION(__addr, __size) \
-  (((u64)(__addr) >= (DYLD_SHARED_CACHE_BASE))   \
-   && (((u64)(__addr) + (u64)(__size)) < (DYLD_SHARED_CACHE_END)))
+  (((u64) (__addr) >= (DYLD_SHARED_CACHE_BASE))  \
+   && (((u64) (__addr) + (u64) (__size)) < (DYLD_SHARED_CACHE_END)))
 
 #define VM_REGION_PRIVATE(__info) \
   ((__info)->share_mode == SM_COW || (__info)->share_mode == SM_PRIVATE)
@@ -88,22 +88,22 @@ struct xnd_vm_page
 #define RESTART_REGION_INHERIT_FLAG  VM_INHERIT_NONE
 
 #if defined(XND_RESTART_BASE) && defined(XND_RESTART_END)
-#define RESTART_REGION(info, addr, size)                        \
-  (((uintptr_t)(addr) >= XND_RESTART_BASE                       \
-    && (uintptr_t)(addr) + (uintptr_t)(size) < XND_RESTART_END) \
-   || ((info)->inheritance == RESTART_REGION_INHERIT_FLAG       \
-       && (info)->behavior == RESTART_REGION_BEHAVIOR_FLAG)     \
-   || ((info)->user_tag == VM_MEMORY_RESTART_STACK))
+# define RESTART_REGION(info, addr, size)                          \
+   (((uintptr_t) (addr) >= XND_RESTART_BASE                        \
+     && (uintptr_t) (addr) + (uintptr_t) (size) < XND_RESTART_END) \
+    || ((info)->inheritance == RESTART_REGION_INHERIT_FLAG         \
+        && (info)->behavior == RESTART_REGION_BEHAVIOR_FLAG)       \
+    || ((info)->user_tag == VM_MEMORY_RESTART_STACK))
 #else
-#define RESTART_REGION(info, addr, size)                 \
-  (((info)->inheritance == RESTART_REGION_INHERIT_FLAG   \
-    && (info)->behavior == RESTART_REGION_BEHAVIOR_FLAG) \
-   || ((info)->user_tag == VM_MEMORY_RESTART_STACK))
+# define RESTART_REGION(info, addr, size)                 \
+   (((info)->inheritance == RESTART_REGION_INHERIT_FLAG   \
+     && (info)->behavior == RESTART_REGION_BEHAVIOR_FLAG) \
+    || ((info)->user_tag == VM_MEMORY_RESTART_STACK))
 #endif
 
-#define IN_VM_RANGE(ptr, start, end)      \
-  ((uintptr_t)(ptr) >= (uintptr_t)(start) \
-   && (uintptr_t)(ptr) < (uintptr_t)(end))
+#define IN_VM_RANGE(ptr, start, end)        \
+  ((uintptr_t) (ptr) >= (uintptr_t) (start) \
+   && (uintptr_t) (ptr) < (uintptr_t) (end))
 
 #define NEEDS_REMAP_BEFORE_RESTORE(r) \
   (!(DYLD_SHARED_CACHE_REGION ((r)->start, (r)->size)))
@@ -121,10 +121,10 @@ struct xnd_vm_page
 extern vm_size_t vm_page_size;
 
 #ifndef VM_PAGE_SIZE
-#define VM_PAGE_SIZE ((size_t)vm_page_size)
+# define VM_PAGE_SIZE ((size_t) vm_page_size)
 #else
-#undef VM_PAGE_SIZE
-#define VM_PAGE_SIZE ((size_t)vm_page_size)
+# undef VM_PAGE_SIZE
+# define VM_PAGE_SIZE ((size_t) vm_page_size)
 #endif
 
 /* From XNU source, vm_statistic.h */
