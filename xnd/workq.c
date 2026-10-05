@@ -13,10 +13,6 @@
 #include "pid/pid.h"
 #include "util/env.h"
 
-static inline void workq_lck_wrlock (void);
-static inline void workq_lck_rdlock (void);
-static inline void workq_lck_unlock (void);
-
 static void workq_reqthreads (int, pthread_priority_t, bool);
 static void workq_setup (struct workq_dispatch_config *);
 static void workq_thread_restore (void) __noreturn;
@@ -31,19 +27,19 @@ struct workqueue workq = {
   .wq_flags = 0,
 };
 
-static inline void
+void
 workq_lck_wrlock (void)
 {
   xpthread_rwlock_wrlock (&workq.wq_rwlock);
 }
 
-static inline void
+void
 workq_lck_rdlock (void)
 {
   xpthread_rwlock_rdlock (&workq.wq_rwlock);
 }
 
-static inline void
+void
 workq_lck_unlock (void)
 {
   xpthread_rwlock_unlock (&workq.wq_rwlock);
@@ -170,34 +166,27 @@ workq_thread_return_hook (struct workq_kernreturn_args *args)
   unreachable ();
 }
 
-int
-workq_setup_dispatch_hook (struct workq_kernreturn_args *args)
+/* the workq lock should be held for writing before calling
+   workq_setup_callback */
+void
+workq_setup_callback (const struct pthread_workqueue_config *cfg)
 {
-  int ret, err;
+  int ret;
   sigset_t mask;
-  struct workq_dispatch_config *cfg = args->arg2;
 
-  workq_lck_wrlock ();
+  /* save workqueue config parameters, we will need them when
+     re-registering the workqueue with the kernel on restart */
+  workq.wq_cfg.wdc_queue_serialno_offs = cfg->queue_serialno_offs;
+  workq.wq_cfg.wdc_queue_label_offs = cfg->queue_label_offs;
 
-  ret = __workq_kernreturn (args->op, args->arg2, args->arg3, args->arg4);
-  if (ret != 0)
-    {
-      workq_lck_unlock ();
-      return ret;
-    }
-
-  workq.wq_cfg.wdc_queue_serialno_offs = cfg->wdc_queue_serialno_offs;
-  workq.wq_cfg.wdc_queue_label_offs = cfg->wdc_queue_label_offs;
-
+  /* ensure that workqueue threads will be able to receive our
+     checkpoint signal when user threads are being suspended */
   mask = sigmask (env_get_ckpt_signal ());
-  err = __bsdthread_ctl (BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK, mask, 0, 0);
-  if (err != 0)
-    xnd_panic ("__bsdthread_ctl: %s\n", strerror (err));
+  ret = __bsdthread_ctl (BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK, mask, 0, 0);
+  if (ret != 0)
+    xnd_panic ("__bsdthread_ctl: %s\n", strerror (ret));
 
   workq.wq_flags |= WQ_SETUP;
-  workq_lck_unlock ();
-
-  return ret;
 }
 
 void

@@ -14,12 +14,12 @@ extern int _pthread_workqueue_allow_send_signals (int sig);
 #define BSDTHREAD_CTL_WORKQ_ALLOW_KILL    0x1000
 #define BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK 0x4000
 
-#define trace_workq_thread_start(t)                                         \
-  ({                                                                        \
-    struct thread_info *__t = (t);                                          \
-    printf ("%s: pthread=%p, kport=%u, tid=%llu\n", __func__, __t->ti_self, \
-            __t->ti_kport, __t->ti_tid);                                    \
-  })
+#define trace_workq_thread_start(t)                             \
+  ((void) ({                                                    \
+    struct thread_info *__t = (t);                              \
+    printf ("%s: pthread=%p, kport=%u, tid=%llu\n", __func__,   \
+            (void *) __t->ti_self, __t->ti_kport, __t->ti_tid); \
+  }))
 
 #define workq_sysctl(type, name)                            \
   ({                                                        \
@@ -88,11 +88,14 @@ struct workq_kernreturn_args
   int arg4;
 };
 
+void workq_lck_wrlock (void);
+void workq_lck_rdlock (void);
+void workq_lck_unlock (void);
 void workq_thread_prepare (void);
 
 int workq_reqthreads_hook (struct workq_kernreturn_args *);
 void workq_thread_return_hook (struct workq_kernreturn_args *) __noreturn;
-int workq_setup_dispatch_hook (struct workq_kernreturn_args *);
+void workq_setup_callback (const struct pthread_workqueue_config *);
 
 void workq_suspend (void);
 void workq_resume (void);

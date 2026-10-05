@@ -16,7 +16,7 @@
 #include "wq_wrappers.h"
 
 #if DEBUG || DEVELOPMENT
-static inline const char *
+__unused static const char *
 wqops_string (int op)
 {
   switch (op)
@@ -54,63 +54,74 @@ static void workq_tramp WORKQ_CB_ARGS;
 static void kevent_tramp KEVENT_CB_ARGS;
 static void workloop_tramp WORKLOOP_CB_ARGS;
 
-/*
- * Function pointers to real workqueue callback functions,
- * initialized by pthread_workqueue_setup_hook ().
- */
-static WORKQ_CB (real_workq_cb);
-static KEVENT_CB (real_kevent_cb);
-static WORKLOOP_CB (real_workloop_cb);
+/* Saved function pointers to the real workqueue callback functions
+   passed by libdispatch through pthread_workqueue_setup ().
+
+   pthread_workqueue_setup_hook () changes the workqueue config to
+   use our internal trampoline callbacks and sets libdispatch_*_cb
+   to point to the original libdispatch workqueue callbacks. */
+static WORKQ_CB (libdispatch_workq_cb);
+static KEVENT_CB (libdispatch_kevent_cb);
+static WORKLOOP_CB (libdispatch_workloop_cb);
 
 static void workq_tramp WORKQ_CB_ARGS
 {
   workq_thread_prepare ();
-  (*real_workq_cb) (arg1);
+  (*libdispatch_workq_cb) (arg1);
 }
 
 static void kevent_tramp KEVENT_CB_ARGS
 {
   workq_thread_prepare ();
-  (*real_kevent_cb) (arg1, arg2);
+  (*libdispatch_kevent_cb) (arg1, arg2);
 }
 
 static void workloop_tramp WORKLOOP_CB_ARGS
 {
   workq_thread_prepare ();
-  (*real_workloop_cb) (arg1, arg2, arg3);
+  (*libdispatch_workloop_cb) (arg1, arg2, arg3);
 }
 
 static int
 pthread_workqueue_setup_hook (struct pthread_workqueue_config *cfg,
                               size_t cfg_size)
 {
-  struct workq_dispatch_config wdc_cfg;
+  int err;
 
-  if (cfg == NULL || cfg_size < offsetof (typeof (*cfg), kevent_cb)
-      || cfg->version > PTHREAD_WORKQUEUE_CONFIG_VERSION)
+  if (cfg == NULL)
     return EINVAL;
 
-  if ((cfg->version < PTHREAD_WORKQUEUE_CONFIG_MIN_SUPPORTED_VERSION)
-      || (cfg->flags & ~PTHREAD_WORKQUEUE_CONFIG_SUPPORTED_FLAGS))
-    return ENOTSUP;
+  trace_pthread_workqueue_setup (cfg);
 
-  if (cfg->version == 1)
+  if (cfg->kevent_cb != NULL)
     {
-      if (cfg_size < offsetof (typeof (*cfg), queue_label_offs))
-        return EINVAL;
+      libdispatch_kevent_cb = cfg->kevent_cb;
+      cfg->kevent_cb = kevent_tramp;
     }
-  else if (cfg_size < sizeof (*cfg)) /* version == 2 */
-    return EINVAL;
+  if (cfg->workloop_cb != NULL)
+    {
+      libdispatch_workloop_cb = cfg->workloop_cb;
+      cfg->workloop_cb = workloop_tramp;
+    }
+  if (cfg->workq_cb != NULL)
+    {
+      libdispatch_workq_cb = cfg->workq_cb;
+      cfg->workq_cb = workq_tramp;
+    }
 
-  wdc_cfg.wdc_version = WORKQ_DISPATCH_CONFIG_VERSION;
-  wdc_cfg.wdc_flags = 0;
-  wdc_cfg.wdc_queue_serialno_offs = cfg->queue_serialno_offs;
-  wdc_cfg.wdc_queue_label_offs = cfg->queue_label_offs;
+  workq_lck_wrlock ();
+  err = pthread_workqueue_setup (cfg, cfg_size);
+  if (err == 0)
+    workq_setup_callback (cfg);
+  else
+    {
+      libdispatch_kevent_cb = NULL;
+      libdispatch_workloop_cb = NULL;
+      libdispatch_workq_cb = NULL;
+    }
 
-  struct workq_kernreturn_args args = { WQOPS_SETUP_DISPATCH, &wdc_cfg,
-                                        sizeof (wdc_cfg), 0 };
-
-  return workq_setup_dispatch_hook (&args);
+  workq_lck_unlock ();
+  return err;
 }
 INTERPOSE (pthread_workqueue_setup_hook, pthread_workqueue_setup);
 
@@ -191,9 +202,6 @@ __workq_kernreturn_hook (int op, void *arg2, int arg3, int arg4)
     case WQOPS_QUEUE_REQTHREADS:
     case WQOPS_QUEUE_REQTHREADS2:
       ret = workq_reqthreads_hook (&args);
-      break;
-    case WQOPS_SETUP_DISPATCH:
-      ret = workq_setup_dispatch_hook (&args);
       break;
     default:
       ret = __workq_kernreturn (op, arg2, arg3, arg4);
