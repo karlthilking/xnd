@@ -28,8 +28,8 @@
 #include <unistd.h>
 #include <signal.h>
 
-static void xnd_setup (void) __constructor (101);
-static void xnd_cleanup (void) __destructor ();
+static void xnd_setup (void) __attribute__ ((__constructor__ (101)));
+static void xnd_cleanup (void) __attribute__ ((__destructor__));
 
 __private_extern enum xnd_state libxnd_state = XND_UNINITIALIZED;
 

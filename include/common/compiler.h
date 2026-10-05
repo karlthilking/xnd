@@ -217,7 +217,7 @@
 #define xnd_is_pointer(p) \
   (xnd_is_array_or_pointer (p) && xnd_same_type ((p), &(p)[0]))
 #define xnd_is_array(a) \
-        (xnd_is_array_or_pointer(a) && !xnd_same_type((a), &(a)[0])
+        (xnd_is_array_or_pointer(a) && !xnd_same_type((a), &(a)[0]))
 #define xnd_must_be_array(a) \
   static_assert (xnd_is_array (a), STRINGIFY (a) " is not an array")
 
