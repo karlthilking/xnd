@@ -1,9 +1,4 @@
-# xnd house style: GNU, as written in include/common/atomic.h,
-# xnd/workq.c, xnd/xnd_lib.c and xnd/synch/.
-#
-# Vendored sources (macos/libdispatch) are excluded via .clang-format-ignore.
 ---
-Language:                             Cpp
 BasedOnStyle:                         GNU
 
 ColumnLimit:                          79
@@ -12,15 +7,37 @@ TabWidth:                             8
 UseTab:                               Never
 ContinuationIndentWidth:              4
 
-# GNU layout: braces on their own line, indented for blocks inside a
-# function; return type on its own line above the definition.
+# Indent one space for nested preprocessor directives
+IndentPPDirectives:                   AfterHash
+PPIndentWidth:                        1
+
+# FOREACH macros treated as statements rather than function calls
+ForEachMacros:
+  - TAILQ_FOREACH
+  - TAILQ_FOREACH_SAFE
+  - TAILQ_FOREACH_REVERSE
+  - TAILQ_FOREACH_REVERSE_SAFE
+  - LIST_FOREACH
+  - LIST_FOREACH_SAFE
+  - SLIST_FOREACH
+  - SLIST_FOREACH_SAFE
+  - STAILQ_FOREACH
+  - STAILQ_FOREACH_SAFE
+  - CIRCLEQ_FOREACH
+  - RB_FOREACH
+  - proc_foreach
+  - proc_foreach_safe
+
+# Newline before braces and indent for C-like statements
+# Return type on its own line before rest of function definition
 BreakBeforeBraces:                    GNU
 AlwaysBreakAfterReturnType:           AllDefinitions
-SpaceBeforeParens:                    Always
 PointerAlignment:                     Right
 
-# This tree is macro-dense; keep hand-aligned continuations aligned and
-# never let a short helper collapse onto one line.
+# Space after type cast and space before function call parens
+SpaceAfterCStyleCast:                 true
+SpaceBeforeParens:                    Always
+
 AlignEscapedNewlines:                 Left
 AllowShortFunctionsOnASingleLine:     None
 AllowShortIfStatementsOnASingleLine:  Never
@@ -30,18 +47,14 @@ AllowShortCaseLabelsOnASingleLine:    false
 AlignConsecutiveMacros:               true
 AlignTrailingComments:                false
 
-# Include order is load-bearing (compiler.h, interpose.h, wrapper
-# headers); never reorder it.
+# Don't sort include order to prevent conflicts
 SortIncludes:                         Never
 IncludeBlocks:                        Preserve
 
-# Block comments are hand-wrapped; leave their prose alone.
 ReflowComments:                       false
 BreakStringLiterals:                  false
 
-# Brace removal changes code, not just whitespace - keep it out of a
-# style-only pass.
-RemoveBracesLLVM:                     false
+RemoveBracesLLVM:                     true
 InsertBraces:                         false
 
 MaxEmptyLinesToKeep:                  1
@@ -52,54 +65,10 @@ BreakBeforeBinaryOperators:           NonAssignment
 AlignAfterOpenBracket:                Align
 BinPackArguments:                     true
 BinPackParameters:                    true
+
+# clang-format classifies C source files using block syntax as
+# Objective-C; Ensure source code identified as Objective-C inherits
+# the same format
 ---
 Language:                             ObjC
-BasedOnStyle:                         GNU
-
-ColumnLimit:                          79
-IndentWidth:                          2
-TabWidth:                             8
-UseTab:                               Never
-ContinuationIndentWidth:              4
-
-# GNU layout: braces on their own line, indented for blocks inside a
-# function; return type on its own line above the definition.
-BreakBeforeBraces:                    GNU
-AlwaysBreakAfterReturnType:           AllDefinitions
-SpaceBeforeParens:                    Always
-PointerAlignment:                     Right
-
-# This tree is macro-dense; keep hand-aligned continuations aligned and
-# never let a short helper collapse onto one line.
-AlignEscapedNewlines:                 Left
-AllowShortFunctionsOnASingleLine:     None
-AllowShortIfStatementsOnASingleLine:  Never
-AllowShortLoopsOnASingleLine:         false
-AllowShortBlocksOnASingleLine:        Never
-AllowShortCaseLabelsOnASingleLine:    false
-AlignConsecutiveMacros:               true
-AlignTrailingComments:                false
-
-# Include order is load-bearing (compiler.h, interpose.h, wrapper
-# headers); never reorder it.
-SortIncludes:                         Never
-IncludeBlocks:                        Preserve
-
-# Block comments are hand-wrapped; leave their prose alone.
-ReflowComments:                       false
-BreakStringLiterals:                  false
-
-# Brace removal changes code, not just whitespace - keep it out of a
-# style-only pass.
-RemoveBracesLLVM:                     false
-InsertBraces:                         false
-
-MaxEmptyLinesToKeep:                  1
-KeepEmptyLinesAtTheStartOfBlocks:     false
-IndentCaseLabels:                     false
-IndentGotoLabels:                     false
-BreakBeforeBinaryOperators:           NonAssignment
-AlignAfterOpenBracket:                Align
-BinPackArguments:                     true
-BinPackParameters:                    true
 ObjCBlockIndentWidth:                 2

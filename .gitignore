@@ -21,3 +21,6 @@ test/inputs/
 __pycache__/
 benchmarks/
 bin/
+xnd_launch
+xnd_macho_parse
+xnd_restart_internal
