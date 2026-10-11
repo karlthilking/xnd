@@ -1,5 +1,7 @@
 CC = clang
-CFLAGS = -g -O0 -Wall -Werror -D_XOPEN_SOURCE
+CFLAGS = \
+	-g -O0 -Wall -Werror -D_XOPEN_SOURCE -D_DARWIN_C_SOURCE \
+	-fsanitize=address,undefined
 
 XND_ROOT = ../..
 override CFLAGS += \
@@ -43,5 +45,7 @@ clean:
 	rm -rf *.dSYM
 
 .PHONY: all clean
-.INTERMEDIATE: $(TST_PATH_OJBECTS) $(TST_XND_ULOCK_OBJECTS) \
+.INTERMEDIATE: \
+	$(TST_PATH_OJBECTS) \
+	$(TST_XND_ULOCK_OBJECTS) \
 	$(TST_IO_OBJECTS)

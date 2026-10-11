@@ -265,6 +265,17 @@ xnd_vsnprintf (char *restrict str, size_t size,
 	      lcnt++;
 	      fmt++;
 	      continue;
+	    case 'z':
+	      /* argument is size of size_t */
+#if SSIZE_MAX == INT_MAX
+	      lcnt = 0;
+#elif SSIZE_MAX == LONG_MAX
+	      lcnt = 1;
+#elif SSIZE_MAX == LLONG_MAX
+	      lcnt = 2;
+#endif
+	      fmt++;
+	      continue;
 	    case 'p':
 	      /* prefix with "0x", lowercase hexadecimal */
 	      arg._ull = (unsigned long long) va_arg (ap, void *);

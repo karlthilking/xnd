@@ -181,13 +181,17 @@ test_xnd_snprintf_int (void)
         | SNPRINTF_CHECK ("%d%i", d, d)
         | SNPRINTF_CHECK ("%ld%li", ld, ld)
         | SNPRINTF_CHECK ("%lld%lli", lld, lld)
+        | SNPRINTF_CHECK ("%zd %zi", ld, ld)
         | SNPRINTF_CHECK ("%d %ld %lld", d, ld, lld);
     }
 
   ret |= 0
     | SNPRINTF_CHECK ("%d%d%d", -1, 0, 1)
     | SNPRINTF_CHECK ("%d %d", INT_MIN, INT_MAX)
-    | SNPRINTF_CHECK ("%lld %lld", LLONG_MIN, LLONG_MAX);
+    | SNPRINTF_CHECK ("%ld %ld", LONG_MIN, LONG_MAX)
+    | SNPRINTF_CHECK ("%lld %lld", LLONG_MIN, LLONG_MAX)
+    | SNPRINTF_CHECK ("%zd %zd", LONG_MIN, LONG_MAX)
+    | SNPRINTF_CHECK ("%i %li %lli", INT_MAX, LONG_MAX, LLONG_MAX);
 
   return ret;
 }
@@ -207,13 +211,16 @@ test_xnd_snprintf_uint (void)
         | SNPRINTF_CHECK ("%u", u)
         | SNPRINTF_CHECK ("%lu", ul)
         | SNPRINTF_CHECK ("%llu", ull)
+        | SNPRINTF_CHECK ("%zu", ul)
         | SNPRINTF_CHECK ("%u %lu %llu", u, ul, ull);
     }
 
   ret |= 0
     | SNPRINTF_CHECK ("%u %lu", UINT_MAX, ULONG_MAX)
     | SNPRINTF_CHECK ("%lu %llu", ULONG_MAX, ULLONG_MAX)
-    | SNPRINTF_CHECK ("%u %lu %llu", UINT_MAX, ULONG_MAX, ULLONG_MAX);
+    | SNPRINTF_CHECK ("%u %lu %llu", UINT_MAX, ULONG_MAX, ULLONG_MAX)
+    | SNPRINTF_CHECK ("%zu", ULONG_MAX);
+
   return ret;
 }
 
