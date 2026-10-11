@@ -14,6 +14,9 @@
 #ifndef asm
 # define asm __asm__
 #endif
+#ifndef __asm
+# define __asm __asm__
+#endif
 
 #ifndef typeof
 # define typeof __typeof
@@ -222,6 +225,7 @@ xnd_warn_unused (const bool x)
 # define __optimize(level)
 #endif
 
-#define __nonnull__(x) __attribute__ ((__nonnull__ x))
+#define __nonnull__(x) 	__attribute__ ((__nonnull__ x))
+#define __format(x)	__attribute__ ((__format__ x))
 
 #endif /* XND_COMPILER_H */

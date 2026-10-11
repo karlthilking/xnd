@@ -24,6 +24,27 @@ struct test_config
   void (*cleanup_function) (void);
 };
 
+struct subtest
+{
+  int status;
+  const char *name;
+  int (*callback) (void);
+};
+
+#define SUBTEST_DECL(func) \
+  { 0, STRINGIFY (func), func }
+
+#define SUBTEST_CHECK(t)                                \
+  ({                                                    \
+    struct subtest *__t = (t);                          \
+    __t->status = (*__t->callback) ();                  \
+    const char *__fmt =                                 \
+      (__t->status == 0                                 \
+       ? "test passed: %s\n" : "test failed: %s\n");    \
+    printf (__fmt, __t->name);                          \
+    __t->status;                                        \
+  })
+
 int subprocess_run (const char *, char *const *);
 void spawn_threads (int, const pthread_attr_t *, void *(*) (void *), void *);
 

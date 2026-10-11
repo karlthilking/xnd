@@ -15,7 +15,11 @@ TST_XND_ULOCK_OBJECTS = \
 	tst-xnd-ulock.o \
 	xnd-ulock.o
 
-ALL = tst-path tst-xnd-ulock
+TST_IO_OBJECTS = \
+	tst-io.o \
+	io.o
+
+ALL = tst-path tst-xnd-ulock tst-io
 
 DIRS = xnd xnd/util xnd/platform xnd/synch
 VPATH = $(addprefix $(XND_ROOT)/,$(DIRS))
@@ -31,9 +35,13 @@ tst-path: $(TST_PATH_OBJECTS)
 tst-xnd-ulock: $(TST_XND_ULOCK_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+tst-io: $(TST_IO_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^
+
 clean:
 	rm -f $(ALL) *.o
 	rm -rf *.dSYM
 
 .PHONY: all clean
-.INTERMEDIATE: $(TST_PATH_OJBECTS) $(TST_XND_ULOCK_OBJECTS)
+.INTERMEDIATE: $(TST_PATH_OJBECTS) $(TST_XND_ULOCK_OBJECTS) \
+	$(TST_IO_OBJECTS)
