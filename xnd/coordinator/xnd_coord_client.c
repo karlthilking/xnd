@@ -194,7 +194,7 @@ disconnect_from_coord (void)
     xnd_warn ("failed to send XND_EXIT to coordinator\n");
 
   xnd_assert (shutdown (coord_fd, SHUT_RDWR) == 0);
-  fd = xnd_atomic_xchg (&coord_fd, -1, release);
+  fd = xnd_atomic_xchg_release (&coord_fd, -1);
   if (close (fd) != 0)
     xnd_perror ("close(coord_fd)");
 
@@ -369,7 +369,7 @@ wait_for_ckpt_request_from_coord (bool *exited)
       ret = recv_msg_from_coord (coord_fd, &msg);
       if (ret != 0)
         {
-          fd = xnd_atomic_load (&coord_fd, acquire);
+          fd = xnd_atomic_load_acquire (&coord_fd);
           if ((fd == -1) || (fd > 0 && peer_exited (fd)))
             did_exit = true;
           break;

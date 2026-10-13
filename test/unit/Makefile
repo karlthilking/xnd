@@ -40,6 +40,9 @@ tst-xnd-ulock: $(TST_XND_ULOCK_OBJECTS)
 tst-io: $(TST_IO_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+tst-atomic: tst-atomic.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 clean:
 	rm -f $(ALL) *.o
 	rm -rf *.dSYM

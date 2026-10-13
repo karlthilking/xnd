@@ -101,12 +101,9 @@ pthread_joiner_cleanup (void *arg)
 {
   struct thread_info *t = (struct thread_info *) arg;
 
-  /*
-	 * We called unsafe_enter() before pthread_join(), and are
-	 * also still holding a reference to the target thread.
-	 * Call unsafe_exit() and drop our reference to reverse our
-	 * join state.
-	 */
+  /* We called unsafe_enter() before pthread_join(), and are also still
+     holding a reference to the target thread. Call unsafe_exit() and
+     drop our reference to reverse our join state. */
   unsafe_exit ();
   xnd_atomic_dec_release (&t->ti_refcnt);
 }
@@ -116,12 +113,10 @@ pthread_join_invalid (struct thread_info *t)
 {
   bool ret, joinable;
 
-  /*
-	 * Thread is not joinable (detached with pthread_detach(), is
-	 * a workqueue thread, etc.), or already has a joiner.
-	 */
+  /* Thread is not joinable (detached with pthread_detach(), is a
+     workqueue thread, etc.), or already has a joiner. */
   xpthread_mutex_lock (&t->ti_lock);
-  joinable = xnd_atomic_load (&t->ti_joinable, acquire);
+  joinable = xnd_atomic_load_acquire (&t->ti_joinable);
   ret = (!joinable || t->ti_joiner != NULL);
   xpthread_mutex_unlock (&t->ti_lock);
 
@@ -151,7 +146,7 @@ pthread_join_hook (pthread_t p, void **value_ptr)
   xnd_assert (self != NULL);
 
   t = thread_from_pthread_acquire_ref (p);
-  state = xnd_atomic_load (&t->ti_state, relaxed);
+  state = xnd_atomic_load_relaxed (&t->ti_state);
 
   if (t == NULL || state == TS_RECLAIMED)
     {
@@ -165,20 +160,16 @@ pthread_join_hook (pthread_t p, void **value_ptr)
       goto out;
     }
 
-  /*
-	 * Checks if the thread is not joinable, or if the thread
-	 * already has an active joiner.
-	 */
+  /* Checks if the thread is not joinable, or if the thread already
+     has an active joiner. */
   if (pthread_join_invalid (t))
     {
       err = EINVAL;
       goto out;
     }
 
-  /*
-	 * Checks if the target thread and the calling thread are
-	 * attempting to join each other.
-	 */
+  /* Checks if the target thread and the calling thread are attempting
+     to join each other. */
   if (pthread_join_deadlock (t, self))
     {
       err = EDEADLK;
@@ -221,7 +212,7 @@ pthread_join_hook (pthread_t p, void **value_ptr)
   unsafe_exit ();
 
   if (err == 0)
-    xnd_atomic_store (&t->ti_state, TS_RECLAIMED, relaxed);
+    xnd_atomic_store_relaxed (&t->ti_state, TS_RECLAIMED);
 
 out:
   xnd_atomic_dec_release (&t->ti_refcnt);
@@ -244,7 +235,7 @@ pthread_detach_hook (pthread_t p)
   if (err == 0)
     {
       wake = true;
-      xnd_atomic_store (&t->ti_joinable, false, release);
+      xnd_atomic_store_release (&t->ti_joinable, false);
     }
   unsafe_exit ();
 

@@ -45,13 +45,13 @@ __private_extern bool is_root_of_tree = false;
 enum xnd_state
 get_xnd_state (void)
 {
-  return xnd_atomic_load (&libxnd_state, acquire);
+  return xnd_atomic_load_acquire (&libxnd_state);
 }
 
 void
 set_xnd_state (enum xnd_state state)
 {
-  xnd_atomic_store (&libxnd_state, state, release);
+  xnd_atomic_store_release (&libxnd_state, state);
 }
 
 void

@@ -147,6 +147,35 @@ static_assert(memory_order_seq_cst == __ATOMIC_SEQ_CST, "");
 #define xnd_atomic_cmpxchg_weak_seq_cst(p, e, v) \
   xnd_atomic_cmpxchg (p, e, v, seq_cst, weak)
 
+#define xnd_atomic_cmpxchg_spin(p, e, v, m)                             \
+  ((void)                                                               \
+   ({                                                                   \
+     __auto_type __p = xnd_cast_to_atomic (p);                          \
+     xnd_unqual_typeof (*__p) __e, __v;                                 \
+     xnd_compiler_barrier_before_atomic (m);                            \
+     do {                                                               \
+       __e = xnd_atomic_value_cast (p, e);                              \
+       do {                                                             \
+         xnd_atomic_yield ();                                           \
+         __v = atomic_load_explicit (__p, memory_order_relaxed);        \
+       } while (__v != __e);                                            \
+     } while (!atomic_compare_exchange_weak_explicit                    \
+              (__p, &__e, xnd_atomic_value_cast (p, v),                 \
+               memory_order_##m, memory_order_relaxed));                \
+     xnd_compiler_barrier_after_atomic (m);                             \
+   }))
+
+#define xnd_atomic_cmpxchg_spin_relaxed(p, e, v) \
+  xnd_atomic_cmpxchg_spin (p, e, v, relaxed)
+#define xnd_atomic_cmpxchg_spin_acquire(p, e, v) \
+  xnd_atomic_cmpxchg_spin (p, e, v, acquire)
+#define xnd_atomic_cmpxchg_spin_release(p, e, v) \
+  xnd_atomic_cmpxchg_spin (p, e, v, release)
+#define xnd_atomic_cmpxchg_spin_acq_rel(p, e, v) \
+  xnd_atomic_cmpxchg_spin (p, e, v, acq_rel)
+#define xnd_atomic_cmpxchg_spin_seq_cst(p, e, v) \
+  xnd_atomic_cmpxchg_spin (p, e, v, seq_cst)
+
 #define xnd_atomic_cmpxchgv(p, e, v, m, type)			\
   ({								\
     __auto_type __e = (xnd_unqual_typeof (p)) (e);		\
@@ -269,128 +298,163 @@ static_assert(memory_order_seq_cst == __ATOMIC_SEQ_CST, "");
 #define xnd_atomic_add(p, v, m) \
   xnd_atomic_c11_op (fetch_add, p, v, m, xnd_add)
 
-#define xnd_atomic_add_relaxed(p) xnd_atomic_add (p, relaxed)
-#define xnd_atomic_add_acquire(p) xnd_atomic_add (p, acquire)
-#define xnd_atomic_add_release(p) xnd_atomic_add (p, release)
-#define xnd_atomic_add_acq_rel(p) xnd_atomic_add (p, acq_rel)
-#define xnd_atomic_add_seq_cst(p) xnd_atomic_add (p, seq_cst)
+#define xnd_atomic_add_relaxed(p, v) xnd_atomic_add (p, v, relaxed)
+#define xnd_atomic_add_acquire(p, v) xnd_atomic_add (p, v, acquire)
+#define xnd_atomic_add_release(p, v) xnd_atomic_add (p, v, release)
+#define xnd_atomic_add_acq_rel(p, v) xnd_atomic_add (p, v, acq_rel)
+#define xnd_atomic_add_seq_cst(p, v) xnd_atomic_add (p, v, seq_cst)
 
 #define xnd_atomic_fetch_add(p, v, m) \
   xnd_atomic_c11_fetch_op (fetch_add, p, v, m)
 
-#define xnd_atomic_fetch_add_relaxed(p) xnd_atomic_fetch_add (p, relaxed)
-#define xnd_atomic_fetch_add_acquire(p) xnd_atomic_fetch_add (p, acquire)
-#define xnd_atomic_fetch_add_release(p) xnd_atomic_fetch_add (p, release)
-#define xnd_atomic_fetch_add_acq_rel(p) xnd_atomic_fetch_add (p, acq_rel)
-#define xnd_atomic_fetch_add_seq_cst(p) xnd_atomic_fetch_add (p, seq_cst)
+#define xnd_atomic_fetch_add_relaxed(p, v) \
+  xnd_atomic_fetch_add (p, v, relaxed)
+#define xnd_atomic_fetch_add_acquire(p, v) \
+  xnd_atomic_fetch_add (p, v, acquire)
+#define xnd_atomic_fetch_add_release(p, v) \
+  xnd_atomic_fetch_add (p, v, release)
+#define xnd_atomic_fetch_add_acq_rel(p, v) \
+  xnd_atomic_fetch_add (p, v, acq_rel)
+#define xnd_atomic_fetch_add_seq_cst(p, v) \
+  xnd_atomic_fetch_add (p, v, seq_cst)
 
 #define xnd_atomic_sub(p, v, m) \
   xnd_atomic_c11_op (fetch_sub, p, v, m, xnd_sub)
 
-#define xnd_atomic_sub_relaxed(p) xnd_atomic_sub (p, relaxed)
-#define xnd_atomic_sub_acquire(p) xnd_atomic_sub (p, acquire)
-#define xnd_atomic_sub_release(p) xnd_atomic_sub (p, release)
-#define xnd_atomic_sub_acq_rel(p) xnd_atomic_sub (p, acq_rel)
-#define xnd_atomic_sub_seq_cst(p) xnd_atomic_sub (p, seq_cst)
+#define xnd_atomic_sub_relaxed(p, v) xnd_atomic_sub (p, v, relaxed)
+#define xnd_atomic_sub_acquire(p, v) xnd_atomic_sub (p, v, acquire)
+#define xnd_atomic_sub_release(p, v) xnd_atomic_sub (p, v, release)
+#define xnd_atomic_sub_acq_rel(p, v) xnd_atomic_sub (p, v, acq_rel)
+#define xnd_atomic_sub_seq_cst(p, v) xnd_atomic_sub (p, v, seq_cst)
 
 #define xnd_atomic_fetch_sub(p, v, m) \
   xnd_atomic_c11_fetch_op (fetch_sub, p, v, m)
 
-#define xnd_atomic_fetch_sub_relaxed(p) xnd_atomic_fetch_sub (p, relaxed)
-#define xnd_atomic_fetch_sub_acquire(p) xnd_atomic_fetch_sub (p, acquire)
-#define xnd_atomic_fetch_sub_release(p) xnd_atomic_fetch_sub (p, release)
-#define xnd_atomic_fetch_sub_acq_rel(p) xnd_atomic_fetch_sub (p, acq_rel)
-#define xnd_atomic_fetch_sub_seq_cst(p) xnd_atomic_fetch_sub (p, seq_cst)
+#define xnd_atomic_fetch_sub_relaxed(p, v) \
+  xnd_atomic_fetch_sub (p, v, relaxed)
+#define xnd_atomic_fetch_sub_acquire(p, v) \
+  xnd_atomic_fetch_sub (p, v, acquire)
+#define xnd_atomic_fetch_sub_release(p, v) \
+  xnd_atomic_fetch_sub (p, v, release)
+#define xnd_atomic_fetch_sub_acq_rel(p, v) \
+  xnd_atomic_fetch_sub (p, v, acq_rel)
+#define xnd_atomic_fetch_sub_seq_cst(p, v) \
+  xnd_atomic_fetch_sub (p, v, seq_cst)
 
 #define xnd_atomic_and(p, v, m) \
   xnd_atomic_c11_op (fetch_and, p, v, m, xnd_and)
 
-#define xnd_atomic_and_relaxed(p) xnd_atomic_and (p, relaxed)
-#define xnd_atomic_and_acquire(p) xnd_atomic_and (p, acquire)
-#define xnd_atomic_and_release(p) xnd_atomic_and (p, release)
-#define xnd_atomic_and_acq_rel(p) xnd_atomic_and (p, acq_rel)
-#define xnd_atomic_and_seq_cst(p) xnd_atomic_and (p, seq_cst)
+#define xnd_atomic_and_relaxed(p, v) xnd_atomic_and (p, v, relaxed)
+#define xnd_atomic_and_acquire(p, v) xnd_atomic_and (p, v, acquire)
+#define xnd_atomic_and_release(p, v) xnd_atomic_and (p, v, release)
+#define xnd_atomic_and_acq_rel(p, v) xnd_atomic_and (p, v, acq_rel)
+#define xnd_atomic_and_seq_cst(p, v) xnd_atomic_and (p, v, seq_cst)
 
 #define xnd_atomic_fetch_and(p, v, m) \
   xnd_atomic_c11_fetch_op (fetch_and, p, v, m)
 
-#define xnd_atomic_fetch_and_relaxed(p) xnd_atomic_fetch_and (p, relaxed)
-#define xnd_atomic_fetch_and_acquire(p) xnd_atomic_fetch_and (p, acquire)
-#define xnd_atomic_fetch_and_release(p) xnd_atomic_fetch_and (p, release)
-#define xnd_atomic_fetch_and_acq_rel(p) xnd_atomic_fetch_and (p, acq_rel)
-#define xnd_atomic_fetch_and_seq_cst(p) xnd_atomic_fetch_and (p, seq_cst)
+#define xnd_atomic_fetch_and_relaxed(p, v) \
+  xnd_atomic_fetch_and (p, v, relaxed)
+#define xnd_atomic_fetch_and_acquire(p, v) \
+  xnd_atomic_fetch_and (p, v, acquire)
+#define xnd_atomic_fetch_and_release(p, v) \
+  xnd_atomic_fetch_and (p, v, release)
+#define xnd_atomic_fetch_and_acq_rel(p, v) \
+  xnd_atomic_fetch_and (p, v, acq_rel)
+#define xnd_atomic_fetch_and_seq_cst(p, v) \
+  xnd_atomic_fetch_and (p, v, seq_cst)
 
 #define xnd_atomic_or(p, v, m) \
   xnd_atomic_c11_op (fetch_or, p, v, m, xnd_or)
 
-#define xnd_atomic_or_relaxed(p) xnd_atomic_or (p, relaxed)
-#define xnd_atomic_or_acquire(p) xnd_atomic_or (p, acquire)
-#define xnd_atomic_or_release(p) xnd_atomic_or (p, release)
-#define xnd_atomic_or_acq_rel(p) xnd_atomic_or (p, acq_rel)
-#define xnd_atomic_or_seq_cst(p) xnd_atomic_or (p, seq_cst)
+#define xnd_atomic_or_relaxed(p, v) xnd_atomic_or (p, v, relaxed)
+#define xnd_atomic_or_acquire(p, v) xnd_atomic_or (p, v, acquire)
+#define xnd_atomic_or_release(p, v) xnd_atomic_or (p, v, release)
+#define xnd_atomic_or_acq_rel(p, v) xnd_atomic_or (p, v, acq_rel)
+#define xnd_atomic_or_seq_cst(p, v) xnd_atomic_or (p, v, seq_cst)
 
 #define xnd_atomic_fetch_or(p, v, m) \
   xnd_atomic_c11_fetch_op (fetch_or, p, v, m)
 
-#define xnd_atomic_fetch_or_relaxed(p) xnd_atomic_fetch_or (p, relaxed)
-#define xnd_atomic_fetch_or_acquire(p) xnd_atomic_fetch_or (p, acquire)
-#define xnd_atomic_fetch_or_release(p) xnd_atomic_fetch_or (p, release)
-#define xnd_atomic_fetch_or_acq_rel(p) xnd_atomic_fetch_or (p, acq_rel)
-#define xnd_atomic_fetch_or_seq_cst(p) xnd_atomic_fetch_or (p, seq_cst)
+#define xnd_atomic_fetch_or_relaxed(p, v) \
+  xnd_atomic_fetch_or (p, v, relaxed)
+#define xnd_atomic_fetch_or_acquire(p, v) \
+  xnd_atomic_fetch_or (p, v, acquire)
+#define xnd_atomic_fetch_or_release(p, v) \
+  xnd_atomic_fetch_or (p, v, release)
+#define xnd_atomic_fetch_or_acq_rel(p, v) \
+  xnd_atomic_fetch_or (p, v, acq_rel)
+#define xnd_atomic_fetch_or_seq_cst(p, v) \
+  xnd_atomic_fetch_or (p, v, seq_cst)
 
 #define xnd_atomic_xor(p, v, m) \
   xnd_atomic_c11_op (fetch_xor, p, v, m, xnd_xor)
 
-#define xnd_atomic_xor_relaxed(p) xnd_atomic_xor (p, relaxed)
-#define xnd_atomic_xor_acquire(p) xnd_atomic_xor (p, acquire)
-#define xnd_atomic_xor_release(p) xnd_atomic_xor (p, release)
-#define xnd_atomic_xor_acq_rel(p) xnd_atomic_xor (p, acq_rel)
-#define xnd_atomic_xor_seq_cst(p) xnd_atomic_xor (p, seq_cst)
+#define xnd_atomic_xor_relaxed(p, v) xnd_atomic_xor (p, v, relaxed)
+#define xnd_atomic_xor_acquire(p, v) xnd_atomic_xor (p, v, acquire)
+#define xnd_atomic_xor_release(p, v) xnd_atomic_xor (p, v, release)
+#define xnd_atomic_xor_acq_rel(p, v) xnd_atomic_xor (p, v, acq_rel)
+#define xnd_atomic_xor_seq_cst(p, v) xnd_atomic_xor (p, v, seq_cst)
 
 #define xnd_atomic_fetch_xor(p, v, m) \
   xnd_atomic_c11_fetch_op (fetch_xor, p, v, m)
 
-#define xnd_atomic_fetch_xor_relaxed(p) xnd_atomic_fetch_xor (p, relaxed)
-#define xnd_atomic_fetch_xor_acquire(p) xnd_atomic_fetch_xor (p, acquire)
-#define xnd_atomic_fetch_xor_release(p) xnd_atomic_fetch_xor (p, release)
-#define xnd_atomic_fetch_xor_acq_rel(p) xnd_atomic_fetch_xor (p, acq_rel)
-#define xnd_atomic_fetch_xor_seq_cst(p) xnd_atomic_fetch_xor (p, seq_cst)
+#define xnd_atomic_fetch_xor_relaxed(p, v) \
+  xnd_atomic_fetch_xor (p, v, relaxed)
+#define xnd_atomic_fetch_xor_acquire(p, v) \
+  xnd_atomic_fetch_xor (p, v, acquire)
+#define xnd_atomic_fetch_xor_release(p, v) \
+  xnd_atomic_fetch_xor (p, v, release)
+#define xnd_atomic_fetch_xor_acq_rel(p, v) \
+  xnd_atomic_fetch_xor (p, v, acq_rel)
+#define xnd_atomic_fetch_xor_seq_cst(p, v) \
+  xnd_atomic_fetch_xor (p, v, seq_cst)
 
 #define xnd_atomic_max(p, v, m) \
   xnd_atomic_bulitin_op (fetch_max, p, v, m, max)
 
-#define xnd_atomic_max_relaxed(p) xnd_atomic_max (p, relaxed)
-#define xnd_atomic_max_acquire(p) xnd_atomic_max (p, acquire)
-#define xnd_atomic_max_release(p) xnd_atomic_max (p, release)
-#define xnd_atomic_max_acq_rel(p) xnd_atomic_max (p, acq_rel)
-#define xnd_atomic_max_seq_cst(p) xnd_atomic_max (p, seq_cst)
+#define xnd_atomic_max_relaxed(p, v) xnd_atomic_max (p, v, relaxed)
+#define xnd_atomic_max_acquire(p, v) xnd_atomic_max (p, v, acquire)
+#define xnd_atomic_max_release(p, v) xnd_atomic_max (p, v, release)
+#define xnd_atomic_max_acq_rel(p, v) xnd_atomic_max (p, v, acq_rel)
+#define xnd_atomic_max_seq_cst(p, v) xnd_atomic_max (p, v, seq_cst)
 
 #define xnd_atomic_fetch_max(p, v, m) \
   xnd_atomic_builtin_fetch_op (fetch_max, p, v, m)
 
-#define xnd_atomic_fetch_max_relaxed(p) xnd_atomic_fetch_max (p, relaxed)
-#define xnd_atomic_fetch_max_acquire(p) xnd_atomic_fetch_max (p, acquire)
-#define xnd_atomic_fetch_max_release(p) xnd_atomic_fetch_max (p, release)
-#define xnd_atomic_fetch_max_acq_rel(p) xnd_atomic_fetch_max (p, acq_rel)
-#define xnd_atomic_fetch_max_seq_cst(p) xnd_atomic_fetch_max (p, seq_cst)
+#define xnd_atomic_fetch_max_relaxed(p, v) \
+  xnd_atomic_fetch_max (p, v, relaxed)
+#define xnd_atomic_fetch_max_acquire(p, v) \
+  xnd_atomic_fetch_max (p, v, acquire)
+#define xnd_atomic_fetch_max_release(p, v) \
+  xnd_atomic_fetch_max (p, v, release)
+#define xnd_atomic_fetch_max_acq_rel(p, v) \
+  xnd_atomic_fetch_max (p, v, acq_rel)
+#define xnd_atomic_fetch_max_seq_cst(p, v) \
+  xnd_atomic_fetch_max (p, v, seq_cst)
 
 #define xnd_atomic_min(p, v, m) \
   xnd_atomic_bulitin_op (fetch_min, p, v, m, min)
 
-#define xnd_atomic_min_relaxed(p) xnd_atomic_min (p, relaxed)
-#define xnd_atomic_min_acquire(p) xnd_atomic_min (p, acquire)
-#define xnd_atomic_min_release(p) xnd_atomic_min (p, release)
-#define xnd_atomic_min_acq_rel(p) xnd_atomic_min (p, acq_rel)
-#define xnd_atomic_min_seq_cst(p) xnd_atomic_min (p, seq_cst)
+#define xnd_atomic_min_relaxed(p, v) xnd_atomic_min (p, v, relaxed)
+#define xnd_atomic_min_acquire(p, v) xnd_atomic_min (p, v, acquire)
+#define xnd_atomic_min_release(p, v) xnd_atomic_min (p, v, release)
+#define xnd_atomic_min_acq_rel(p, v) xnd_atomic_min (p, v, acq_rel)
+#define xnd_atomic_min_seq_cst(p, v) xnd_atomic_min (p, v, seq_cst)
 
 #define xnd_atomic_fetch_min(p, v, m) \
   xnd_atomic_bulitin_fetch_op (fetch_min, p, v, m)
 
-#define xnd_atomic_fetch_min_relaxed(p) xnd_atomic_fetch_min (p, relaxed)
-#define xnd_atomic_fetch_min_acquire(p) xnd_atomic_fetch_min (p, acquire)
-#define xnd_atomic_fetch_min_release(p) xnd_atomic_fetch_min (p, release)
-#define xnd_atomic_fetch_min_acq_rel(p) xnd_atomic_fetch_min (p, acq_rel)
-#define xnd_atomic_fetch_min_seq_cst(p) xnd_atomic_fetch_min (p, seq_cst)
+#define xnd_atomic_fetch_min_relaxed(p, v) \
+  xnd_atomic_fetch_min (p, v, relaxed)
+#define xnd_atomic_fetch_min_acquire(p, v) \
+  xnd_atomic_fetch_min (p, v, acquire)
+#define xnd_atomic_fetch_min_release(p, v) \
+  xnd_atomic_fetch_min (p, v, release)
+#define xnd_atomic_fetch_min_acq_rel(p, v) \
+  xnd_atomic_fetch_min (p, v, acq_rel)
+#define xnd_atomic_fetch_min_seq_cst(p, v) \
+  xnd_atomic_fetch_min (p, v, seq_cst)
 
 /* clang-format on */
 #endif /* !__cplusplus */

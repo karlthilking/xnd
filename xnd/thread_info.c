@@ -454,48 +454,42 @@ static bool
 thread_reapable (struct thread_info *t)
 {
   u16 ref;
-  bool ret, joinable, has_joiner;
+  bool reapable, joinable, has_joiner;
   enum thread_state state;
 
-  ref = xnd_atomic_load (&t->ti_refcnt, acquire);
-  state = xnd_atomic_load (&t->ti_state, relaxed);
+  ref = xnd_atomic_load_acquire (&t->ti_refcnt);
+  state = xnd_atomic_load_relaxed (&t->ti_state);
 
   switch (state)
     {
     case TS_ZOMBIE:
-      joinable = xnd_atomic_load (&t->ti_joinable, acquire);
+      joinable = xnd_atomic_load_acquire (&t->ti_joinable);
       if (!joinable)
         {
-          /*
-			 * If we can't grab t->ti_lock, assume that
-			 * the joiner is holding the lock.
-			 */
+          /* If we can't grab t->ti_lock, assume that
+	     the joiner is holding the lock. */
           if (pthread_mutex_trylock (&t->ti_lock) != 0)
-            {
-              has_joiner = true;
-            }
+            has_joiner = true;
           else
             {
               has_joiner = (t->ti_joiner != NULL);
               pthread_mutex_unlock (&t->ti_lock);
             }
         }
-      ret = !(joinable || has_joiner || ref > 0);
+      reapable = !(joinable || has_joiner || ref > 0);
       break;
     case TS_RECLAIMED:
-      ret = (ref == 0);
+      reapable = (ref == 0);
       break;
     default:
-      ret = false;
+      reapable = false;
       break;
     }
 
-  /*
-	 * Reclaimed threads without a reference can be freed.
-	 * Zombie threads without a reference can be freed iff
-	 * they are not joinable (detached or workqueue thread).
-	 */
-  return ret;
+  /* Reclaimed threads without a reference can be freed. Zombie
+     threads without a reference can be freed iff they are not
+     joinable (detached or workqueue thread). */
+  return reapable;
 }
 
 /*
@@ -522,12 +516,7 @@ thread_fini (void *arg)
   bool ok;
   struct thread_info *self = (struct thread_info *) arg;
 
-  do
-    {
-      ok = xnd_atomic_cmpxchg_weak_acquire (&self->ti_state, TS_RUNNING,
-                                            TS_ZOMBIE);
-    }
-  while (!ok);
+  xnd_atomic_cmpxchg_spin_acquire (&self->ti_state, TS_RUNNING, TS_ZOMBIE);
 
   xpthread_mutex_lock (&self->ti_lock);
   if (self->ti_joiner != NULL)
@@ -903,7 +892,7 @@ try_suspend_threads (int ckptsig, int *count)
         }
 
       sig = 0;
-      state = xnd_atomic_load (&t->ti_state, acquire);
+      state = xnd_atomic_load_acquire (&t->ti_state);
       switch (state)
         {
         case TS_RUNNING:
@@ -1032,7 +1021,7 @@ wait_for_exiting_threads (void)
       exited = 0;
       TAILQ_FOREACH_SAFE (t, &thread_list, ti_entry, next)
         {
-          state = xnd_atomic_load (&t->ti_state, relaxed);
+          state = xnd_atomic_load_relaxed (&t->ti_state);
           switch (state)
             {
             case TS_RECLAIMED:
@@ -1129,7 +1118,7 @@ thread_sighandler (int sig, siginfo_t *info, void *uctx)
   WRITE_ONCE (is_restart, true);
   xnd_tlv_fini ();
 
-  xnd_atomic_store (&myself->ti_state, TS_SUSPENDED, seq_cst);
+  xnd_atomic_store_seq_cst (&myself->ti_state, TS_SUSPENDED);
 
   /* Wait in barrier before resuming */
   thread_barrier ();
@@ -1139,7 +1128,7 @@ out:
   if (cancelstate != PTHREAD_CANCEL_DISABLE)
     pthread_setcancelstate (cancelstate, NULL);
 
-  xnd_atomic_store (&myself->ti_state, TS_RUNNING, release);
+  xnd_atomic_store_release (&myself->ti_state, TS_RUNNING);
 }
 
 /*
@@ -1189,7 +1178,7 @@ thread_start (void *arg)
 {
   void *exit_value;
 
-  xnd_atomic_store (&_xnd_is_threaded, true, relaxed);
+  xnd_atomic_store_relaxed (&_xnd_is_threaded, true);
 
   xnd_tlv_init ();
   myself = (struct thread_info *) arg;
@@ -1207,7 +1196,7 @@ thread_start (void *arg)
 	 * duirng initialization.
 	 */
   xpthread_mutex_lock (&myself->ti_lock);
-  xnd_atomic_store (&myself->ti_state, TS_RUNNABLE, release);
+  xnd_atomic_store_release (&myself->ti_state, TS_RUNNABLE);
   xpthread_cond_signal (&myself->ti_cond);
   xpthread_mutex_unlock (&myself->ti_lock);
 
@@ -1215,7 +1204,7 @@ thread_start (void *arg)
 	 * Safe to be checkpointed now once finished synchronizing
 	 * with parent thread.
 	 */
-  xnd_atomic_store (&myself->ti_state, TS_RUNNING, release);
+  xnd_atomic_store_release (&myself->ti_state, TS_RUNNING);
   exit_value = (*myself->ti_start) (myself->ti_arg);
 
   pthread_exit (exit_value);
@@ -1279,13 +1268,17 @@ thread_save_tls (void)
 static void
 thread_restore_tls (struct thread_info *t)
 {
-  u64 *tidaddr;
   pthread_t self;
 
   _thread_set_tsd_base ((void *) t->ti_tsdbase);
 
-  tidaddr = tsd_relative_access (u64, TSD_THREADID_OFFSET);
-  *tidaddr = t->ti_tid;
+  /* FIXME: commenting out pthread struct tid spoofing, but need
+     to verify that it will not corrupt pthread mutexes and other
+     synchronization primitives using tid for ownership
+
+     u64 *tidaddr;
+     tidaddr = tsd_relative_access (u64, TSD_THREADID_OFFSET);
+     *tidaddr = t->ti_tid; */
 
   /* Restore head of cleanup stack (saved in thread_save_tls) */
   self = tsd_getspecific (__TSD_THREAD_SELF);
@@ -1294,28 +1287,26 @@ thread_restore_tls (struct thread_info *t)
   /* Refresh thread mach port */
   tsd_setspecific (__TSD_MACH_THREAD_SELF, mach_thread_self ());
 
-  /*
-	 * Zero out other thread-specific mach ports so that can be
-	 * re-initialized lazily.
-	 *
-	 * mig_get_reply_port() will re-initialize the reply port
-	 * with mach_port_construct() when tsd[__TSD_MIG_REPLY] is set
-	 * to MACH_PORT_NULL.
-	 *
-	 * mig_get_special_reply_port will re-initialize the special
-	 * reply port with thread_get_special_reply_port() when
-	 * tsd[__TSD_MACH_SPECIAL_REPLY] is set to MACH_PORT_NULL.
-	 *
-	 * os_get_cached_semaphore() will create a new semaphore
-	 * with _os_semaphore_create if the cached semaphore is
-	 * set to SEMAPHORE_NULL.
-	 *
-	 * FIXME:
-	 *  To be more precise, it would be necessary to place wrappers
-	 *  around library functions that use any of these ports, so
-	 *  they will not be invalidated if we checkpoint while the
-	 *  function is executing.
-	 */
+  /* Zero out other thread-specific mach ports so that can be
+     re-initialized lazily.
+	 
+     mig_get_reply_port() will re-initialize the reply port
+     with mach_port_construct() when tsd[__TSD_MIG_REPLY] is set
+     to MACH_PORT_NULL.
+	 
+     mig_get_special_reply_port will re-initialize the special
+     reply port with thread_get_special_reply_port() when
+     tsd[__TSD_MACH_SPECIAL_REPLY] is set to MACH_PORT_NULL.
+	 
+     os_get_cached_semaphore() will create a new semaphore
+     with _os_semaphore_create if the cached semaphore is
+     set to SEMAPHORE_NULL.
+	 
+     FIXME:
+     To be more precise, it would be necessary to place wrappers
+     around library functions that use any of these ports, so
+     they will not be invalidated if we checkpoint while the
+     function is executing. */
   tsd_setspecific (__TSD_MIG_REPLY, MACH_PORT_NULL);
   tsd_setspecific (__TSD_MACH_SPECIAL_REPLY, MACH_PORT_NULL);
   tsd_setspecific (__TSD_SEMAPHORE_CACHE, SEMAPHORE_NULL);

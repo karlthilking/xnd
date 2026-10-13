@@ -52,7 +52,10 @@ struct thread_info
   enum thread_state ti_state;
   uint16_t ti_depth;
   uint16_t ti_refcnt;
-  uint8_t ti_wq_thread : 1, ti_wq_free : 1, ti_ckpt_thread : 1, __unused : 5;
+  uint8_t ti_wq_thread : 1,
+    ti_wq_free : 1,
+    ti_ckpt_thread : 1,
+    __unused_padding : 5;
 
   /*
    * pthread_join context, ti_joinable is accessed atomically,
@@ -120,18 +123,12 @@ unsafe_enter_internal (struct thread_info *t)
   enum thread_state state;
   uint64_t epoch = READ_ONCE (xnd_epoch);
 
-  state = xnd_atomic_load (&t->ti_state, relaxed);
+  state = xnd_atomic_load_relaxed (&t->ti_state);
   if ((t->ti_depth++ == 0) && (state != TS_EMBRYO))
     {
       xnd_assert (state == TS_RUNNING || state == TS_SIGNALED);
-      do
-        {
-          if (state == TS_SIGNALED)
-            pthread_yield_np ();
-          state = TS_RUNNING;
-        }
-      while (
-          !xnd_atomic_cmpxchgv_weak_acquire (&t->ti_state, &state, TS_UNSAFE));
+      xnd_atomic_cmpxchg_spin_acquire (&t->ti_state,
+                                       TS_RUNNING, TS_UNSAFE);
     }
 
   return (READ_ONCE (xnd_epoch) == epoch);
@@ -143,13 +140,12 @@ unsafe_exit_internal (struct thread_info *t)
   bool ok;
   enum thread_state state;
 
-  state = xnd_atomic_load (&t->ti_state, relaxed);
+  state = xnd_atomic_load_relaxed (&t->ti_state);
   if ((--t->ti_depth == 0) && (state != TS_EMBRYO))
     {
-      ok = xnd_atomic_cmpxchg_release (&t->ti_state, TS_UNSAFE, TS_RUNNING);
-      if (__xnd_unlikely (!ok))
-        xnd_panic ("unexpected thread state: %s\n",
-                   thread_state_string (t->ti_state));
+      state = xnd_atomic_xchg_release (&t->ti_state, TS_RUNNING);
+      if (__xnd_unlikely (state != TS_UNSAFE))
+        xnd_panic ("unexpected state: %s\n", thread_state_string (state));
     }
 }
 

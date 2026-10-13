@@ -181,11 +181,9 @@ sigprocmask_hook (int how, const sigset_t *set, sigset_t *oset)
 {
   sigset_t mask, *maskp = NULL;
 
-  /*
-	 * Only the calling thread and the checkpoint thread are running.
-	 * Translate sigprocmask to pthread_sigmask.
-	 */
-  if (!xnd_atomic_load (&_xnd_is_threaded, relaxed))
+  /* Only the calling thread and the checkpoint thread are running.
+     Translate sigprocmask to pthread_sigmask. */
+  if (!xnd_atomic_load_relaxed (&_xnd_is_threaded))
     return pthread_sigmask_hook (how, set, oset);
 
   if (set != NULL)
