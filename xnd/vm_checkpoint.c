@@ -21,7 +21,6 @@ vm_region_from_restart (vm_region_submap_info_data_64_t *info,
       { XND_RESTART_DATA_ADDR, XND_RESTART_DATA_SIZE },
       { XND_RESTART_LINKEDIT_ADDR, XND_RESTART_LINKEDIT_SIZE },
       { XND_RESTART_DYLD_ADDR, XND_RESTART_DYLD_SIZE },
-      { XND_RESTART_GUARD_ADDR, XND_RESTART_GUARD_SIZE },
       { XND_RESTART_STACK_ADDR, XND_RESTART_STACK_SIZE },
     };
 
@@ -40,11 +39,7 @@ vm_region_from_restart (vm_region_submap_info_data_64_t *info,
     {
       range = &rst_regions[i];
       if ((range->base <= addr) && (range->base + range->size >= end))
-        {
-          if (range->base == XND_RESTART_GUARD_ADDR)
-            xnd_error ("restart guard was never deallocated\n");
-          return true;
-        }
+        return true;
     }
 
   return false;

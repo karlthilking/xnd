@@ -53,16 +53,15 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define XND_RESTART_CC "xnd_restart_cc"
+#define XRCC "xrcc"
 
-#define ANSI_RED "\033[0;31m"
-#define ANSI_RESET "\033[0m"
+#define RED "\033[0;31m"
+#define RESET "\033[0m"
 
-#define panic(fmt, ...)                         \
-  do {                                          \
-    dprintf (2, "%s: " ANSI_RED fmt ANSI_RESET, \
-             XND_RESTART_CC, ##__VA_ARGS__);    \
-    exit (1);                                   \
+#define panic(fmt, ...)                                         \
+  do {                                                          \
+    dprintf (2, "%s: " RED fmt RESET, XRCC, ##__VA_ARGS__);     \
+    exit (1);                                                   \
   } while (0);
 
 #ifndef trunc_page
@@ -73,9 +72,12 @@
 # define round_page(x) trunc_page ((x) + vm_page_mask)
 #endif
 
-/* default parameters to use when compiling xnd_restart_internal,
+/* Default parameters to use when compiling xnd_restart_internal,
    allow for overriding with -D<name>=value when compiling
-   xnd_restart_cc itself */
+   xnd_restart_cc itself.
+
+   Note: XND_RESTART_BASE_ADDR is the same as XND_RESTART_TEXT_ADDR
+   because we always map the text segment before others. */
 #ifndef XND_RESTART_BASE_ADDR
 # define XND_RESTART_BASE_ADDR 0x0000500000000000ULL
 #endif
@@ -111,6 +113,14 @@
 # define XND_RESTART_GUARD_MAXPROT "rwx" /* VM_PROT_ALL */
 #endif
 
+/* Assume that deferred reclaim buffer will be present during C/R if
+   not specified otherwise. If the deferred reclaim buffer has to
+   be relocated manually, then we will do so by inserting a guard
+   region into xnd_restart_internal */
+#ifndef DEFERRED_RECLAIM_ENABLED
+# define DEFERRED_RECLAIM_ENABLED 1
+#endif
+
 /* number of command-line arguments passed to segpatch when patching
    xnd_restart_internal (not including the path of segpatch itself):
 
@@ -118,9 +128,15 @@
    --segname <segname> --sectname <sectname> --prot <prot>/<maxprot> */
 #define SEGPATCH_NARGS 11
 
-/* number of #define's and linker flags used when compiling
-   xnd_restart_internal */
-#define NDEFS 14
+/* Number of #define's and linker flags used when compiling
+   xnd_restart_internal. If the deferred reclaim buffer is not enabled,
+   then there are two less definitions (omitting XND_RESTART_GUARD_ADDR
+   and XND_RESTART_GUARD_SIZE). */
+#if DEFERRED_RECLAIM_ENABLED
+# define NDEFS 14
+#else
+# define NDEFS 12
+#endif
 
 /* disable -Wl,-ld_classic by default, assuming that the newer linker
    will support and honor our -segaddr linker flags */
@@ -231,8 +247,10 @@ static const char *empty_defs[] =
     "-DXND_RESTART_DYLD_SIZE=0ULL",
     "-DXND_RESTART_STACK_ADDR=0ULL",
     "-DXND_RESTART_STACK_SIZE=0ULL",
+#if DEFERRED_RECLAIM_ENABLED
     "-DXND_RESTART_GUARD_ADDR=0ULL",
     "-DXND_RESTART_GUARD_SIZE=0ULL"
+#endif
   };
 _Static_assert (countof (empty_defs) == NDEFS,
                 "xnd_restart_cc: unexpected number of empty #define's");
@@ -251,8 +269,10 @@ static const char *macronames[14] =
     "XND_RESTART_DYLD_SIZE",
     "XND_RESTART_STACK_ADDR",
     "XND_RESTART_STACK_SIZE",
+#if DEFERRED_RECLAIM_ENABLED
     "XND_RESTART_GUARD_ADDR",
     "XND_RESTART_GUARD_SIZE"
+#endif
   };
 _Static_assert (countof (macronames) == NDEFS,
                 "xnd_restart_cc: unexpected number of macro names");
@@ -439,12 +459,14 @@ restart_params_init (struct restart_params *params,
   set_segsize_param (stack_size, size);
 
   /* 13. restart guard address */
+#if DEFERRED_RECLAIM_ENABLED
   addr = round_page (XND_RESTART_GUARD_ADDR);
   set_segaddr_param (guard_addr, addr, NULL);
 
   /* 14. restart guard size */
   size = round_page (XND_RESTART_GUARD_SIZE);
   set_segsize_param (guard_size, size);
+#endif
   
   /* final ldflag to make sure -Wl,-segaddr is recognized by the
      linker if we are on a newer version */
@@ -651,7 +673,7 @@ xrpatch (const char *out, struct restart_params *params)
 static void
 usage (void)
 {
-  fprintf (stderr, "Usage: %s [options] file ...\n", XND_RESTART_CC);
+  fprintf (stderr, "Usage: %s [options] file ...\n", XRCC);
 }
 
 int
@@ -693,6 +715,7 @@ main (int argc, char *argv[])
       else
         argvec_push (&cflags, shift);
     }
+#undef shift
 
   if (srcs.len < 1)
     panic ("no inputs files\n");
@@ -740,7 +763,7 @@ main (int argc, char *argv[])
   /* invoke segpatch on xnd_restart_internal to insert our guard region
      in xnd_restart_internal (only if the deferred reclaim buffer will
      be present, otherwise this can be skipped) */
-#if XND_DEFERRED_RECLAIM_ENABLED
+#if DEFERRED_RECLAIM_ENABLED
   xrpatch (path, &params);
 #endif
 
