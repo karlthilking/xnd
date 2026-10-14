@@ -25,38 +25,35 @@
     __p;                                   \
   })
 
-#define xmalloc(n)          \
-  ({                        \
-    size_t __n = (n);       \
-    __xalloc (malloc, __n); \
-  })
+#define xmalloc(n) 		__xalloc (malloc, n)
+#define xcalloc(c, n)		__xalloc (calloc, c, n)
+#define xrealloc(p, n)		__xalloc (realloc, p, n)
+#define xaligned_alloc(a, n)	__xalloc (aligned_alloc, a, n)
 
-#define xcalloc(cnt, size)                 \
-  ({                                       \
-    size_t __cnt = (cnt), __size = (size); \
-    __xalloc (calloc, __cnt, __size);      \
-  })
+#define xstrdup(str) 		__xalloc (strdup, str)
+#define xstrndup(str, n) 	__xalloc (strndup, str, n)
 
-#define xrealloc(ptr, size)            \
-  ({                                   \
-    void *__ptr = (ptr);               \
-    size_t __size = (size);            \
-    __xalloc (realloc, __ptr, __size); \
-  })
+#define __xallocf(op, ptr, fmt, ...)            \
+  ((void)                                       \
+   ({                                           \
+     int __ret = op (ptr, fmt, ##__VA_ARGS__);  \
+     if (__xnd_unlikely (__ret == -1))          \
+       xalloc_panic (STRINGIFY (op), errno);    \
+   }))
 
-#define xaligned_alloc(align, size)            \
-  ({                                           \
-    size_t __align = (align), __size = (size); \
-    __xalloc (aligned_alloc, __align, __size); \
-  })
+#define xasprintf(ptr, fmt, ...) \
+  __xallocf (asprintf, ptr, fmt, ##__VA_ARGS__)
+#define xvasprintf(ptr, fmt, ap) \
+  __xallocf (vasprintf, ptr, fmt, ap)
 
-#define xposix_memalign(ptr, align, size)                \
-  ((void) ({                                             \
-    void **__ptr = (ptr);                                \
-    size_t __align = (align), __size = (size);           \
-    int __err = posix_memalign (__ptr, __align, __size); \
-    if (__xnd_unlikely (__err != 0))                     \
-      xalloc_panic ("posix_memalign", __err);            \
-  }))
+#define xposix_memalign(ptr, align, size)                       \
+  ((void)                                                       \
+   ({                                                           \
+     void **__ptr = (ptr);                                      \
+     size_t __align = (align), __size = (size);                 \
+     int __err = posix_memalign (__ptr, __align, __size);       \
+     if (__xnd_unlikely (__err != 0))                           \
+       xalloc_panic ("posix_memalign", __err);                  \
+   }))
 
 #endif /* XND_XALLOC_H */

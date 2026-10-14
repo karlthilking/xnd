@@ -21,13 +21,12 @@
 #include <ucontext.h>
 #include <sys/mman.h>
 
-#define RESTART_PAUSE_WHILE(expr)                                 \
-  if (expr)                                                       \
-    printf ("Pausing in %s (lldb -p %d)\n", __func__, getpid ()); \
-  do                                                              \
-    {                                                             \
-    }                                                             \
-  while (expr)
+#define RESTART_PAUSE_WHILE(expr)                                       \
+  if (expr)                                                             \
+    {                                                                   \
+      printf ("Pausing in %s (pid: %d)\n", __func__, getpid ());        \
+      while (expr);                                                     \
+    }                                                                   \
 
 static bool restart_pause = false;
 
@@ -86,7 +85,7 @@ jump (int fd)
   kern_return_t ret;
   void *sp;
   const mach_vm_size_t size = 1024 * 1024;
-  mach_vm_address_t addr = XND_RESTART_STACK;
+  mach_vm_address_t addr = XND_RESTART_STACK_ADDR;
 
   /**
          * Make VM object purgable and associate VM_REGION_RESTART_STACK
@@ -122,20 +121,16 @@ __noreturn int
 main (int argc, char *argv[])
 {
   int fd;
-  mach_vm_address_t ubc_addr;
-  mach_vm_size_t ubc_size;
+  mach_vm_address_t addr;
+  mach_vm_size_t size;
   const char *ckptfile = NULL;
 
   for (char **p = argv + 1; *p != NULL; p++)
     {
       if (strncmp (*p, "--pause", sizeof ("--pause")) == 0)
-        {
-          restart_pause = true;
-        }
+        restart_pause = true;
       else if (strstr (*p, ".xnd") && access (*p, F_OK) == 0)
-        {
-          ckptfile = *p;
-        }
+        ckptfile = *p;
       else
         {
           xnd_error ("Invalid argument: %s\n", *p);
@@ -149,20 +144,20 @@ main (int argc, char *argv[])
       exit (XND_EXIT_FAILURE);
     }
 
-  ubc_addr = ckpt_vm_find_ubc_region (&ubc_size);
-  if (ubc_addr > 0 && ubc_addr < DYLD_SHARED_CACHE_BASE)
+  addr = ckpt_vm_find_ubc_region (&size);
+  if (addr > 0 && addr < DYLD_SHARED_CACHE_BASE)
     {
-      xnd_assert (ubc_addr >= PAGEZERO_END);
-      xnd_error ("UBC region at fatal address: "
-                 "0x%016llx-0x%016llx %llu\n",
-                 ubc_addr, ubc_addr + ubc_size, ubc_size);
+      xnd_error ("vm reclaim buffer bad address: 0x%llx-0x%llx %llu\n",
+                 addr, addr + size, size);
       exit (XND_EXIT_FAILURE);
     }
+                 
 
   if (ckpt_vm_remove_xnd_guard () < 0)
     {
-      xnd_error ("Failed to remove guard: 0x%016llx-0x%016llx\n",
-                 XND_GUARD_ADDR, XND_GUARD_ADDR + XND_GUARD_SIZE);
+      xnd_error ("failed to deallocate guard: 0x%llx-0x%llx\n",
+                 XND_RESTART_GUARD_ADDR,
+                 XND_RESTART_GUARD_ADDR + XND_RESTART_GUARD_SIZE);
       exit (XND_EXIT_FAILURE);
     }
 

@@ -2,19 +2,64 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+
 #include "util/io.h"
 #include "vm_region.h"
+
+static bool
+vm_region_from_restart (vm_region_submap_info_data_64_t *info,
+                        mach_vm_address_t addr, mach_vm_size_t size)
+{
+  static const struct vm_range
+  {
+    mach_vm_address_t base;
+    mach_vm_size_t size;
+  } rst_regions[] =
+    {
+      { XND_RESTART_TEXT_ADDR, XND_RESTART_TEXT_SIZE },
+      { XND_RESTART_DATA_CONST_ADDR, XND_RESTART_DATA_CONST_SIZE },
+      { XND_RESTART_DATA_ADDR, XND_RESTART_DATA_SIZE },
+      { XND_RESTART_LINKEDIT_ADDR, XND_RESTART_LINKEDIT_SIZE },
+      { XND_RESTART_DYLD_ADDR, XND_RESTART_DYLD_SIZE },
+      { XND_RESTART_GUARD_ADDR, XND_RESTART_GUARD_SIZE },
+      { XND_RESTART_STACK_ADDR, XND_RESTART_STACK_SIZE },
+    };
+
+  const struct vm_range *range = NULL;
+  const mach_vm_address_t end = addr + size;
+
+  /* Quick check to see if the region is from xnd_restart_internal,
+     but could be missed if the inheritance or behavior attributes
+     were not persisted by the kernel. */
+  if (((info->inheritance == RESTART_REGION_INHERIT_FLAG)
+       && (info->behavior == RESTART_REGION_BEHAVIOR_FLAG))
+      || (info->user_tag == VM_MEMORY_RESTART_STACK))
+    return true;
+
+  for (size_t i = 0; i < countof (rst_regions); i++)
+    {
+      range = &rst_regions[i];
+      if ((range->base <= addr) && (range->base + range->size >= end))
+        {
+          if (range->base == XND_RESTART_GUARD_ADDR)
+            xnd_error ("restart guard was never deallocated\n");
+          return true;
+        }
+    }
+
+  return false;
+}
 
 int
 ckpt_vm_valid_region (vm_region_submap_info_data_64_t *info,
                       mach_vm_address_t addr, mach_vm_size_t size)
 {
-  /**
-         * Skip zero page, guard regions, and regions that belonged
-         * to xnd_restart_internal
-         */
-  if (PAGEZERO (addr, size) || RESTART_REGION (info, addr, size)
-      || info->max_protection == VM_PROT_NONE)
+  /* Skip zero page and permanent guard regions */
+  if (PAGEZERO (addr, size) || info->max_protection == VM_PROT_NONE)
+    return 0;
+
+  /* Skip regions from xnd_restart_internal */
+  if (vm_region_from_restart (info, addr, size))
     return 0;
 
   if (DYLD_SHARED_CACHE_REGION (addr, size))

@@ -411,8 +411,8 @@ int
 ckpt_vm_remove_xnd_guard (void)
 {
   kern_return_t kr;
-  mach_vm_address_t addr = XND_GUARD_ADDR;
-  mach_vm_size_t size = XND_GUARD_SIZE;
+  mach_vm_address_t addr = XND_RESTART_GUARD_ADDR;
+  mach_vm_size_t size = XND_RESTART_GUARD_SIZE;
 
   kr = mach_vm_deallocate (mach_task_self (), addr, size);
   if (kr != KERN_SUCCESS)
