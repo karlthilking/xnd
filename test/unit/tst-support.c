@@ -173,7 +173,7 @@ main (int argc, char *argv[])
 #endif
 
 #ifdef PREPARE_FUNCTION
-  test_config.prepare = PREPARE_FUNCTION;
+  test_config.prepare_function = PREPARE_FUNCTION;
 #endif
 
 #if defined(TEST_FUNCTION)

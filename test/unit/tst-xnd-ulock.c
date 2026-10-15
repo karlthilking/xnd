@@ -12,6 +12,9 @@
 
 #define TEST_NAME "tst-xnd-ulock"
 
+static bool run_tests = true;
+static bool run_benchmarks = false;
+
 struct node
 {
   int val;
@@ -168,117 +171,170 @@ os_unfair_lock_bench (int nthrds, uint64_t steps, void (^work) (void))
 static int
 do_test (void)
 {
-  uint32_t elapsed;
-  uint64_t steps;
-  void (^work) (void) = NULL;
+  int ret;
+  struct subtest test = SUBTEST_DECL (xnd_ulock_verify);
+  void (^run_bench) (uint64_t, void (^) (void)) = NULL;
 
-  if (xnd_ulock_verify () != 0)
-    {
-      puts ("test failed: xnd_ulock_verify\n");
-      return 1;
-    }
-  else
-    puts ("test passed: xnd_ulock_verify\n");
+  if (run_tests)
+    ret = SUBTEST_CHECK (test);
+  if (!run_benchmarks)
+    return ret;
 
-  float *x, *y;
-  x = xmalloc (sizeof (float) * 3);
-  y = xmalloc (sizeof (float) * 3);
+  run_bench = ^(uint64_t steps, void (^work) (void)) {
+      uint32_t elapsed;
+      uint32_t xnd_times[5], pthread_times[5], os_times[5];
+      float xnd_avg = 0.0f, pthread_avg = 0.0f, os_avg = 0.0f;
 
-  work = ^(void) {
-    __unused float f = 0.0f;
-    f += *(x + 0) * *(y + 0);
-    f += *(x + 1) * *(y + 1);
-    f += *(x + 2) * *(y + 2);
-  };
+      for (int n = 2; n <= 32; n <<= 1)
+        {
+          elapsed = xnd_ulock_bench (n, steps / n, work);
+          printf ("xnd_ulock: %u ms (%d threads)\n", elapsed, n);
+          xnd_times[__builtin_popcount (n - 1) - 1] = elapsed;
 
-  steps = 25000000;
-  puts ("benchmarks (short critical section):\n");
-  for (int n = 2; n <= 32; n <<= 1)
-    {
-      elapsed = xnd_ulock_bench (n, steps / n, work);
-      printf ("xnd_ulock: %u ms (%d threads)\n", elapsed, n);
-      elapsed = pthread_mutex_bench (n, steps / n, work);
-      printf ("pthread_mutex: %u ms (%d threads)\n", elapsed, n);
-      elapsed = os_unfair_lock_bench (n, steps / n, work);
-      printf ("os_unfair_lock: %u ms (%d threads)\n", elapsed, n);
+          elapsed = pthread_mutex_bench (n, steps / n, work);
+          printf ("pthread_mutex: %u ms (%d threads)\n", elapsed, n);
+          pthread_times[__builtin_popcount (n - 1) - 1] = elapsed;
+
+          elapsed = os_unfair_lock_bench (n, steps / n, work);
+          printf ("os_unfair_lock: %u ms (%d threads)\n", elapsed, n);
+          os_times[__builtin_popcount (n - 1) - 1] = elapsed;
+
+          putchar ('\n');
+        }
+
+      for (int i = 0; i < 5; i++)
+        {
+          xnd_avg += (float) *(xnd_times + i);
+          pthread_avg += (float) *(pthread_times + i);
+          os_avg += (float) *(os_times + i);
+        }
+
+      xnd_avg /= 5, pthread_avg /= 5, os_avg /= 5;
+      printf ("xnd_ulock average: %f ms\n", xnd_avg);
+      printf ("pthread_mutex average: %f ms\n", pthread_avg);
+      printf ("os_unfair_lock average: %f ms\n", os_avg);
       putchar ('\n');
-    }
+    };
 
-  free (x);
-  free (y);
+  /* run benchmarks with fast critical section */
+  {
+    float *x, *y;
+    const uint64_t steps = 20000000;
+    void (^work) (void) = NULL;
 
-  char *key, *txt;
-  key = xmalloc (64);
-  txt = xmalloc (64);
+    x = xmalloc (sizeof (*x) * 3);
+    y = xmalloc (sizeof (*y) * 3);
 
-  work = ^(void) {
-    for (int i = 63; i >= 0; i--)
+    work = ^(void)
       {
-        key[i] = '0' + ((rand () & 1) ^ 1);
-        txt[i] = '0' + ((rand () ^ 1) & 1);
-      }
-    txt[63] = '\0';
-    setkey (key);
-    for (int i = 5; i >= 0; i--)
+        __unused float f = 0.0f;
+        f += *(x + 0) * *(y + 0);
+        f += *(x + 1) * *(y + 1);
+        f += *(x + 2) * *(y + 2);
+      };
+
+    puts ("benchmarks (short critical section):");
+    run_bench (steps, work);
+
+    free (x);
+    free (y);
+  }
+
+  /* run benchmarks with medium length critical section */
+  {
+    char *key, *txt;
+    const uint64_t steps = 200000;
+    void (^work) (void) = NULL;
+
+    key = xmalloc (64);
+    txt = xmalloc (64);
+
+    work = ^(void)
       {
-        encrypt (txt, 0);
-        encrypt (txt, 1);
-      }
-  };
-
-  steps = 200000;
-  puts ("benchmarks (medium critical section):\n");
-  for (int n = 2; n <= 32; n <<= 1)
-    {
-      elapsed = xnd_ulock_bench (n, steps / n, work);
-      printf ("xnd_ulock: %u ms (%d threads)\n", elapsed, n);
-      elapsed = pthread_mutex_bench (n, steps / n, work);
-      printf ("pthread_mutex: %u ms (%d threads)\n", elapsed, n);
-      elapsed = os_unfair_lock_bench (n, steps / n, work);
-      printf ("os_unfair_lock: %u ms (%d threads)\n", elapsed, n);
-      putchar ('\n');
-    }
-
-  free (key);
-  free (txt);
-
-  work = ^(void) {
-    int fd;
-    char *a, *b;
-    const size_t n = 1 << 14;
-
-    a = xmalloc (n), b = xmalloc (n);
-    fd = open ("/dev/urandom", O_RDONLY);
-    for (int i = 50; i >= 0; i--)
-      {
-        read (fd, a, n);
-        read (fd, b, n);
-        for (int k = n; k >= 0; k--)
+        for (int i = 63; i >= 0; i--)
           {
-            a[k] ^= b[n - k];
-            b[k] ^= a[n - k];
+            key[i] = '0' + ((rand () & 1) ^ 1);
+            txt[i] = '0' + ((rand () ^ 1) & 1);
           }
-      }
-    free (a);
-    free (b);
-    close (fd);
-  };
+        txt[63] = '\0';
+        setkey (key);
+        for (int i = 5; i >= 0; i--)
+          {
+            encrypt (txt, 0);
+            encrypt (txt, 1);
+          }
+      };
 
-  steps = 250;
-  puts ("benchmarks (long critical section):\n");
-  for (int n = 2; n <= 32; n <<= 1)
-    {
-      elapsed = xnd_ulock_bench (n, steps / n, work);
-      printf ("xnd_ulock: %u ms (%d threads)\n", elapsed, n);
-      elapsed = pthread_mutex_bench (n, steps / n, work);
-      printf ("pthread_mutex: %u ms (%d threads)\n", elapsed, n);
-      elapsed = os_unfair_lock_bench (n, steps / n, work);
-      printf ("os_unfair_lock: %u ms (%d threads)\n", elapsed, n);
-      putchar ('\n');
-    }
+    puts ("benchmarks (medium critical section):");
+    run_bench (steps, work);
 
-  return 0;
+    free (key);
+    free (txt);
+  }
+
+  /* run benchmarks with long critical section */
+  {
+    const uint64_t steps = 250;
+    void (^work) (void) = NULL;
+
+    work = ^(void)
+      {
+        int fd;
+        char *a, *b;
+        const size_t n = 1 << 14;
+
+        a = xmalloc (n);
+        b = xmalloc (n);
+        fd = open ("/dev/urandom", O_RDONLY);
+
+        for (int i = 50; i >= 0; i--)
+          {
+            read (fd, a, n);
+            read (fd, b, n);
+            for (int k = n - 1; k >= 0; k--)
+              {
+                a[k] ^= b[n - 1 - k];
+                b[k] ^= a[n - 1 - k];
+              }
+          }
+        free (a);
+        free (b);
+        close (fd);
+      };
+
+    puts ("benchmarks (long critical section):");
+    run_bench (steps, work);
+  }
+
+  return ret;
 }
 
+static void
+prepare_test (int argc, char *argv[])
+{
+  char *opt = NULL;
+
+#define shift *(argc--, argv++)
+  shift;
+  while (argc > 0)
+    {
+      if (strncmp (*argv, "--test=", const_strlen ("--test")) == 0)
+        {
+          opt = shift;
+          if (strsep (&opt, "="), opt != NULL)
+            run_tests = (atoi (opt) != 0);
+        }
+      else if (strncmp (*argv, "--bench=", const_strlen ("--bench")) == 0)
+        {
+          opt = shift;
+          if (strsep (&opt, "="), opt != NULL)
+            run_benchmarks = (atoi (opt) != 0);
+        }
+      else
+        printf ("unrecognized option: %s\n", shift);
+    }
+}
+
+#define PREPARE_FUNCTION prepare_test
 #define TEST_FUNCTION do_test
 #include "tst-support.c"

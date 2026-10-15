@@ -26,23 +26,21 @@ struct test_config
 
 struct subtest
 {
-  int status;
   const char *name;
   int (*callback) (void);
 };
 
 #define SUBTEST_DECL(func) \
-  { 0, STRINGIFY (func), func }
+  { STRINGIFY (func), func }
 
-#define SUBTEST_CHECK(t)                                \
-  ({                                                    \
-    struct subtest *__t = (t);                          \
-    __t->status = (*__t->callback) ();                  \
-    const char *__fmt =                                 \
-      (__t->status == 0                                 \
-       ? "test passed: %s\n" : "test failed: %s\n");    \
-    printf (__fmt, __t->name);                          \
-    __t->status;                                        \
+#define SUBTEST_CHECK(t)                      \
+  ({                                          \
+    int __status = (t).callback ();           \
+    if (__status == 0)                        \
+      printf ("test passed: %s\n", (t).name); \
+    else                                      \
+      printf ("test passed: %s\n", (t).name); \
+    __status;                                 \
   })
 
 int subprocess_run (const char *, char *const *);
