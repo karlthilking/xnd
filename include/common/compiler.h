@@ -32,8 +32,10 @@
 # define __has_attribute(x) (0)
 #endif
 
-#ifndef static_assert
-# define static_assert _Static_assert
+#ifndef __cplusplus
+# undef static_assert
+# define __static_assert(e, msg, ...) _Static_assert (e, msg)
+# define static_assert(e, ...) __static_assert (e, ##__VA_ARGS__, #e)
 #endif
 
 #ifndef __cplusplus
@@ -180,6 +182,12 @@
 # define __warn_unused __attribute__ ((warn_unused_result))
 #endif
 
+#define BUILD_BUG_ON(expr) \
+  ((int) sizeof (char[1 - 2 * !!(expr)]))
+
+#define const_strlen(s) \
+  (sizeof (s) - 1 + BUILD_BUG_ON (!__builtin_constant_p (s)))
+
 /* Ignores qualifiers */
 #define xnd_same_type(a, b) \
   __builtin_types_compatible_p (typeof (a), typeof (b))
@@ -201,7 +209,7 @@
 #define xnd_is_array(a) \
   (xnd_is_array_or_pointer (a) && !xnd_same_type ((a), &(a)[0]))
 #define xnd_must_be_array(a) \
-  static_assert (xnd_is_array (a), STRINGIFY (a) " is not an array")
+  _Static_assert (xnd_is_array (a), #a " is not an array")
 
 #define xnd_is_signed(x)   ((__typeof__ (x)) (-1) < (__typeof__ (x)) (1))
 #define xnd_is_unsigned(x) (!xnd_is_signed (x))
@@ -225,7 +233,7 @@ xnd_warn_unused (const bool x)
 # define __optimize(level)
 #endif
 
-#define __nonnull__(x) 	__attribute__ ((__nonnull__ x))
-#define __format(x)	__attribute__ ((__format__ x))
+#define __nonnull__(x) __attribute__ ((__nonnull__ x))
+#define __attribute_format__(x) __attribute__ ((__format__ x))
 
 #endif /* XND_COMPILER_H */

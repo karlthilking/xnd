@@ -14,14 +14,31 @@
 #define TEST_NAME "tst-io"
 
 static int test_xnd_snprintf_literal (void);
+static int test_xnd_vsnprintf_literal (void);
+
 static int test_xnd_snprintf_string (void);
+static int test_xnd_vsnprintf_string (void);
+
 static int test_xnd_snprintf_char (void);
+static int test_xnd_vsnprintf_char (void);
+
 static int test_xnd_snprintf_int (void);
+static int test_xnd_vsnprintf_int (void);
+
 static int test_xnd_snprintf_uint (void);
+static int test_xnd_vsnprintf_uint (void);
+
 static int test_xnd_snprintf_hex (void);
+static int test_xnd_vsnprintf_hex (void);
+
 static int test_xnd_snprintf_ptr (void);
+static int test_xnd_vsnprintf_ptr (void);
+
 static int test_xnd_snprintf_diverse (void);
+static int test_xnd_vsnprintf_diverse (void);
+
 static int test_xnd_snprintf (void);
+static int test_xnd_vsnprintf (void);
 static int do_test (void);
 
 static const char *strings[] =
@@ -87,45 +104,129 @@ static void *ptrs[] =
     
 #define BUFSZ ((size_t) 512)
 
-#define SNPRINTF_CHECK(fmt, ...)                                \
+#define check_fail(fmt, size, msg, ...)                         \
+  do {                                                          \
+    printf ("check failed: fmt=%s, size=%zu\n", fmt, size);     \
+    printf (msg, ##__VA_ARGS__);                                \
+  } while (0)
+
+static int
+check_return (const char *fmt, size_t size, int val, int exp)
+{
+  const char msg[] = "xnd_snprintf returned %d, snprintf returned %d\n";
+
+  if (val != exp)
+    {
+      check_fail (fmt, size, msg, val, exp);
+      return 1;
+    }
+  
+  return 0;
+}
+
+static int
+check_equal (const char *fmt, size_t size, const char *res,
+             const char *exp, size_t len)
+{
+  const char msg[] = "xnd_snprintf result: %s, snprintf result: %s\n";
+
+  if (strncmp (res, exp, len) != 0)
+    {
+      check_fail (fmt, size, msg, res, exp);
+      return 1;
+    }
+
+  return 0;
+}
+
+static int
+check_terminator (const char *fmt, size_t size,
+                  const char *res, size_t len)
+{
+  const size_t index = min (size - 1, len);
+  const char msg[] = "xnd_snprintf missed null terminator: %s\n";
+
+  if (res[index] != '\0')
+    {
+      check_fail (fmt, size, msg, res);
+      return 1;
+    }
+
+  return 0;
+}
+
+__unused static int
+__VSNPRINTF_CHECK (const char *fmt, ...)
+{
+  va_list ap;
+  int r1, r2;
+  char s1[BUFSZ], s2[BUFSZ];
+  const size_t n = BUFSZ;
+
+  va_start (ap, fmt);
+  r1 = xnd_vsnprintf (s1, n, fmt, ap);
+  r2 = vsnprintf (s2, n, fmt, ap);
+  va_end (ap);
+
+  if (check_return (fmt, n, r1, r2)
+      || check_equal (fmt, n, s1, s2, (size_t) r1)
+      || check_terminator (fmt, n, s1, (size_t) r1))
+    return 1;
+
+  return 0;
+}
+
+#define __SNPRINTF_CHECK(fmt, ...)                              \
   ({                                                            \
-    int __rv, __re, __status = 0;                               \
+    int __r1, __r2, __ret = 0;                                  \
+    char __s1[BUFSZ], __s2[BUFSZ];                              \
     const size_t __n = BUFSZ;                                   \
-    char __res[BUFSZ], __exp[BUFSZ];                            \
-    __rv = xnd_snprintf (__res, __n, fmt, ##__VA_ARGS__);       \
-    __re = snprintf (__exp, __n, fmt, ##__VA_ARGS__);           \
-    if (__rv != __re)                                           \
-      {                                                         \
-        printf ("check failed: fmt=\"%s\", size=%zu\n"          \
-                "xnd_snprintf returned %d\n"                    \
-                "snprintf returned %d\n",                       \
-                fmt, __n, __rv, __re);                          \
-        __status = -1;                                          \
-      }                                                         \
-    else if (strncmp (__res, __exp, (size_t) __rv) != 0)        \
-      {                                                         \
-        printf ("check failed: fmt=\"%s\", size=%zu\n"          \
-                "xnd_snprintf result: %s\n"                     \
-                "snprintf result: %s\n",                        \
-                fmt, __n, __res, __exp);                        \
-        __status = -1;                                          \
-      }                                                         \
-    __status;                                                   \
+    do {                                                        \
+      __r1 = xnd_snprintf (__s1, __n, fmt, ##__VA_ARGS__);      \
+      __r2 = snprintf (__s2, __n, fmt, ##__VA_ARGS__);          \
+    } while (0);                                                \
+    const size_t __len = (size_t) __r1;                         \
+    if (check_return (fmt, __n, __r1, __r2)                     \
+        || check_equal (fmt, __n, __s1, __s2, __len)            \
+        || check_terminator (fmt, __n, __s1, __len))            \
+      __ret = 1;                                                \
+    __ret;                                                      \
   })
+
+#define __XSNPRINTF_CHECK(...)	| __SNPRINTF_CHECK (__VA_ARGS__)
+#define __XVSNPRINTF_CHECK(...)	| __VSNPRINTF_CHECK (__VA_ARGS__)
+
+#define SNPRINTF_CHECK(list) 	0 list (__XSNPRINTF_CHECK)
+#define VSNPRINTF_CHECK(list)	0 list (__XVSNPRINTF_CHECK)
+
+#define STRING_LITERAL_LIST(X)                  \
+  X ("")                                        \
+  X (" ")                                       \
+  X ("\n")                                      \
+  X ("\t\n\t\r\n")                              \
+  X ("%%")                                      \
+  X ("%%%%")                                    \
+  X ("0123456789ABCDEF")                        \
+  X ("%%s%%c%%d")
 
 static int
 test_xnd_snprintf_literal (void)
 {
-  return 0
-    | SNPRINTF_CHECK ("")
-    | SNPRINTF_CHECK (" ")
-    | SNPRINTF_CHECK ("\n")
-    | SNPRINTF_CHECK ("\t\n\t\r\n")
-    | SNPRINTF_CHECK ("%%")
-    | SNPRINTF_CHECK ("%%%%")
-    | SNPRINTF_CHECK ("0123456789ABCDEF")
-    | SNPRINTF_CHECK ("%%s%%c%%d");
+  return SNPRINTF_CHECK (STRING_LITERAL_LIST);
 }
+
+static int
+test_xnd_vsnprintf_literal (void)
+{
+  return VSNPRINTF_CHECK (STRING_LITERAL_LIST);
+}
+
+#define STRING_LIST(X)                          \
+  X ("%s", s1)                                  \
+  X ("%s%%%s", s1, s1)                          \
+  X ("%s-%s", s1, s2)                           \
+  X ("%s%s%s", s1, s2, s1)                      \
+  X ("%s%%s", s1)
 
 static int
 test_xnd_snprintf_string (void)
@@ -136,16 +237,33 @@ test_xnd_snprintf_string (void)
   for (size_t i = 0; i < countof (strings); i++)
     {
       s1 = strings[i], s2 = strings[countof (strings) - 1 - i];
-      ret |= 0
-        | SNPRINTF_CHECK ("%s", s1)
-        | SNPRINTF_CHECK ("%s%%%s", s1, s1)
-        | SNPRINTF_CHECK ("%s-%s", s1, s2)
-        | SNPRINTF_CHECK ("%s%s%s", s1, s2, s1)
-        | SNPRINTF_CHECK ("%s%%s", s1);
+      ret |= SNPRINTF_CHECK (STRING_LIST);
     }
 
   return ret;
 }
+
+static int
+test_xnd_vsnprintf_string (void)
+{
+   int ret = 0;
+  const char *s1, *s2;
+
+  for (size_t i = 0; i < countof (strings); i++)
+    {
+      s1 = strings[i], s2 = strings[countof (strings) - 1 - i];
+      ret |= VSNPRINTF_CHECK (STRING_LIST);
+    }
+
+  return ret;
+}
+
+#define CHAR_LIST(X)                            \
+  X ("%c", c1)                                  \
+  X ("%c-%c", c1, c2)                           \
+  X ("%c%c%c", c1, c1, c1)                      \
+  X ("%c%%%c", c1, c2)                          \
+  X ("-- %c -- %c --\n", c1, c2)
 
 static int
 test_xnd_snprintf_char (void)
@@ -156,16 +274,41 @@ test_xnd_snprintf_char (void)
   for (size_t i = 0; i < countof (chars) - 1; i++)
     {
       c1 = chars[i], c2 = chars[countof (chars) - 2 - i];
-      ret |= 0
-        | SNPRINTF_CHECK ("%c", c1)
-        | SNPRINTF_CHECK ("%c-%c", c1, c2)
-        | SNPRINTF_CHECK ("%c%c%c", c1, c1, c1)
-        | SNPRINTF_CHECK ("%c%%%c", c1, c2)
-        | SNPRINTF_CHECK ("-- %c -- %c --\n", c1, c2);
+      ret |= SNPRINTF_CHECK (CHAR_LIST);
     }
 
   return ret;
 }
+
+static int
+test_xnd_vsnprintf_char (void)
+{
+  int ret = 0;
+  char c1, c2;
+  
+  for (size_t i = 0; i < countof (chars) - 1; i++)
+    {
+      c1 = chars[i], c2 = chars[countof (chars) - 2 - i];
+      ret |= VSNPRINTF_CHECK (CHAR_LIST);
+    }
+
+  return ret;
+}
+
+#define INT_INNER_LIST(X)                      \
+  X ("%d%i", d, d)                             \
+  X ("%ld%li", ld, ld)                         \
+  X ("%lld%lli", lld, lld)                     \
+  X ("%zd %zi", ld, ld)                        \
+  X ("%d %ld %lld", d, ld, lld)
+
+#define INT_OUTER_LIST(X)                           \
+  X ("%d%d%d", -1, 0, 1)                            \
+  X ("%d %d", INT_MIN, INT_MAX)                     \
+  X ("%ld %ld", LONG_MIN, LONG_MAX)                 \
+  X ("%lld %lld", LLONG_MIN, LLONG_MAX)             \
+  X ("%zd %zd", LONG_MIN, LONG_MAX)                 \
+  X ("%i %li %lli", INT_MAX, LONG_MAX, LLONG_MAX)
 
 static int
 test_xnd_snprintf_int (void)
@@ -173,28 +316,46 @@ test_xnd_snprintf_int (void)
   int d, ret = 0;
   long ld;
   long long lld;
-  
+
   for (size_t i = 0; i < countof (ints); i++)
     {
       lld = ints[i], ld = (long) lld, d = (int) ld;
-      ret |= 0
-        | SNPRINTF_CHECK ("%d%i", d, d)
-        | SNPRINTF_CHECK ("%ld%li", ld, ld)
-        | SNPRINTF_CHECK ("%lld%lli", lld, lld)
-        | SNPRINTF_CHECK ("%zd %zi", ld, ld)
-        | SNPRINTF_CHECK ("%d %ld %lld", d, ld, lld);
+      ret |= SNPRINTF_CHECK (INT_INNER_LIST);
     }
 
-  ret |= 0
-    | SNPRINTF_CHECK ("%d%d%d", -1, 0, 1)
-    | SNPRINTF_CHECK ("%d %d", INT_MIN, INT_MAX)
-    | SNPRINTF_CHECK ("%ld %ld", LONG_MIN, LONG_MAX)
-    | SNPRINTF_CHECK ("%lld %lld", LLONG_MIN, LLONG_MAX)
-    | SNPRINTF_CHECK ("%zd %zd", LONG_MIN, LONG_MAX)
-    | SNPRINTF_CHECK ("%i %li %lli", INT_MAX, LONG_MAX, LLONG_MAX);
-
+  ret |= SNPRINTF_CHECK (INT_OUTER_LIST);
   return ret;
 }
+
+static int
+test_xnd_vsnprintf_int (void)
+{
+  int d, ret = 0;
+  long ld;
+  long long lld;
+
+  for (size_t i = 0; i < countof (ints); i++)
+    {
+      lld = ints[i], ld = (long) lld, d = (int) ld;
+      ret |= VSNPRINTF_CHECK (INT_INNER_LIST);
+    }
+
+  ret |= VSNPRINTF_CHECK (INT_OUTER_LIST);
+  return ret;
+}
+
+#define UINT_INNER_LIST(X)             \
+  X ("%u", u)                          \
+  X ("%lu", ul)                        \
+  X ("%llu", ull)                      \
+  X ("%zu", ul)                        \
+  X ("%u %lu %llu", u, ul, ull)
+
+#define UINT_OUTER_LIST(X)                             \
+  X ("%u %lu", UINT_MAX, ULONG_MAX)                    \
+  X ("%lu %llu", ULONG_MAX, ULLONG_MAX)                \
+  X ("%u %lu %llu", UINT_MAX, ULONG_MAX, ULLONG_MAX)   \
+  X ("%zu", ULONG_MAX) 
 
 static int
 test_xnd_snprintf_uint (void)
@@ -207,22 +368,46 @@ test_xnd_snprintf_uint (void)
   for (size_t i = 0; i < countof (uints); i++)
     {
       ull = uints[i], ul = (unsigned long) ull, u = (unsigned int) ul;
-      ret |= 0
-        | SNPRINTF_CHECK ("%u", u)
-        | SNPRINTF_CHECK ("%lu", ul)
-        | SNPRINTF_CHECK ("%llu", ull)
-        | SNPRINTF_CHECK ("%zu", ul)
-        | SNPRINTF_CHECK ("%u %lu %llu", u, ul, ull);
+      ret |= SNPRINTF_CHECK (UINT_INNER_LIST);
     }
 
-  ret |= 0
-    | SNPRINTF_CHECK ("%u %lu", UINT_MAX, ULONG_MAX)
-    | SNPRINTF_CHECK ("%lu %llu", ULONG_MAX, ULLONG_MAX)
-    | SNPRINTF_CHECK ("%u %lu %llu", UINT_MAX, ULONG_MAX, ULLONG_MAX)
-    | SNPRINTF_CHECK ("%zu", ULONG_MAX);
-
+  ret |= SNPRINTF_CHECK (UINT_OUTER_LIST);
   return ret;
 }
+
+static int
+test_xnd_vsnprintf_uint (void)
+{
+  int ret = 0;
+  unsigned int u;
+  unsigned long ul;
+  unsigned long long ull;
+
+  for (size_t i = 0; i < countof (uints); i++)
+    {
+      ull = uints[i], ul = (unsigned long) ull, u = (unsigned int) ul;
+      ret |= VSNPRINTF_CHECK (UINT_INNER_LIST);
+    }
+
+  ret |= VSNPRINTF_CHECK (UINT_OUTER_LIST);
+  return ret;
+}
+
+#define HEX_INNER_LIST(X)             \
+  X ("%x", u)                         \
+  X ("%lx", ul)                       \
+  X ("%llx", ull)                     \
+  X ("%x%X", u, u)                    \
+  X ("%llX", ull)                     \
+  X ("%llx", ull >> 16)               \
+  X ("%x %lx %llx", u, ul, ull)       \
+  X ("%X %lX %llX", u, ul, ull)
+
+#define HEX_OUTER_LIST(X)                               \
+  X ("%x %X", UINT_MAX, UINT_MAX)                       \
+  X ("%lx %lX", ULONG_MAX, ULONG_MAX)                   \
+  X ("%llx %llX", ULLONG_MAX, ULLONG_MAX)               \
+  X ("%x %lx %llx", UINT_MAX, ULONG_MAX, ULLONG_MAX)
 
 static int
 test_xnd_snprintf_hex (void)
@@ -235,24 +420,37 @@ test_xnd_snprintf_hex (void)
   for (size_t i = 0; i < countof (uints); i++)
     {
       ull = uints[i], ul = (unsigned long) ull, u = (unsigned int) ul;
-      ret |= 0
-        | SNPRINTF_CHECK ("%x", u)
-        | SNPRINTF_CHECK ("%lx", ul)
-        | SNPRINTF_CHECK ("%llx", ull)
-        | SNPRINTF_CHECK ("%x%X", u, u)
-        | SNPRINTF_CHECK ("%llX", ull)
-        | SNPRINTF_CHECK ("%llx", ull >> 16)
-        | SNPRINTF_CHECK ("%x %lx %llx", u, ul, ull)
-        | SNPRINTF_CHECK ("%X %lX %llX", u, ul, ull);
+      ret |= SNPRINTF_CHECK (HEX_INNER_LIST);
     }
 
-  ret |= 0
-    | SNPRINTF_CHECK ("%x %X", UINT_MAX, UINT_MAX)
-    | SNPRINTF_CHECK ("%lx %lX", ULONG_MAX, ULONG_MAX)
-    | SNPRINTF_CHECK ("%llx %llX", ULLONG_MAX, ULLONG_MAX)
-    | SNPRINTF_CHECK ("%x %lx %llx", UINT_MAX, ULONG_MAX, ULLONG_MAX);
+  ret |= SNPRINTF_CHECK (HEX_OUTER_LIST);
   return ret;
 }
+
+static int
+test_xnd_vsnprintf_hex (void)
+{
+  int ret = 0;
+  unsigned int u;
+  unsigned long ul;
+  unsigned long long ull;
+  
+  for (size_t i = 0; i < countof (uints); i++)
+    {
+      ull = uints[i], ul = (unsigned long) ull, u = (unsigned int) ul;
+      ret |= VSNPRINTF_CHECK (HEX_INNER_LIST);
+    }
+
+  ret |= VSNPRINTF_CHECK (HEX_OUTER_LIST);
+  return ret;
+}
+
+#define POINTER_LIST(X)      \
+  X ("%p", p1)               \
+  X ("%p%p", p1, p2)         \
+  X ("%p%%p", p1)            \
+  X ("%p%%%p", p1, p2)       \
+  X ("%p-%p", p1, p2)
 
 static int
 test_xnd_snprintf_ptr (void)
@@ -263,16 +461,32 @@ test_xnd_snprintf_ptr (void)
   for (size_t i = 0; i < countof (ptrs); i++)
     {
       p1 = ptrs[i], p2 = ptrs[countof (ptrs) - 1 - i];
-      ret |= 0
-        | SNPRINTF_CHECK ("%p", p1)
-        | SNPRINTF_CHECK ("%p%p", p1, p2)
-        | SNPRINTF_CHECK ("%p%%p", p1)
-        | SNPRINTF_CHECK ("%p%%%p", p1, p2)
-        | SNPRINTF_CHECK ("%p-%p", p1, p2);
+      ret |= SNPRINTF_CHECK (POINTER_LIST);
     }
 
   return ret;
 }
+
+static int
+test_xnd_vsnprintf_ptr (void)
+{
+  int ret = 0;
+  void *p1, *p2;
+
+  for (size_t i = 0; i < countof (ptrs); i++)
+    {
+      p1 = ptrs[i], p2 = ptrs[countof (ptrs) - 1 - i];
+      ret |= VSNPRINTF_CHECK (POINTER_LIST);
+    }
+
+  return ret;
+}
+
+#define DIVERSE_LIST(X)                                    \
+  X ("(+ (- %u %d) %lld)\n", _7.u, _4.d, _6.lld)           \
+  X ("%c-%c %p %llu\n", _1.c, _1.c, _3.p, _9.llu)          \
+  X ("%s (%p)\t\t %d/%c\n", _2.s, _3.p, _4.d, _1.c)        \
+  X ("[%ld..%lu]\n", _5.ld, _8.lu)
 
 static int
 test_xnd_snprintf_diverse (void)
@@ -296,11 +510,35 @@ test_xnd_snprintf_diverse (void)
       _1.c = randchar (), _2.s = randstring (), _3.p = randptr ();
       _4.d = randint (), _5.ld = randlong (), _6.lld = randllong ();
       _7.u = randuint (), _8.lu = randulong (), _9.llu = randullong ();
-      ret |= 0
-        | SNPRINTF_CHECK ("(+ (- %u %d) %lld)\n", _7.u, _4.d, _6.lld)
-        | SNPRINTF_CHECK ("%c-%c %p %llu\n", _1.c, _1.c, _3.p, _9.llu)
-        | SNPRINTF_CHECK ("%s (%p)\t\t %d/%c\n", _2.s, _3.p, _4.d, _1.c)
-        | SNPRINTF_CHECK ("[%ld..%lu]\n", _5.ld, _8.lu);
+      ret |= SNPRINTF_CHECK (DIVERSE_LIST);
+    }
+
+  return ret;
+}
+
+static int
+test_xnd_vsnprintf_diverse (void)
+{
+  int ret = 0;
+  union fmtarg_u
+  {
+    char c;
+    const char *s;
+    void *p;
+    int d;
+    long ld;
+    long long lld;
+    unsigned int u;
+    unsigned long lu;
+    unsigned long long llu;
+  } _1, _2, _3, _4, _5, _6, _7, _8, _9;
+
+  for (int i = 0; i < 512; i++)
+    {
+      _1.c = randchar (), _2.s = randstring (), _3.p = randptr ();
+      _4.d = randint (), _5.ld = randlong (), _6.lld = randllong ();
+      _7.u = randuint (), _8.lu = randulong (), _9.llu = randullong ();
+      ret |= VSNPRINTF_CHECK (DIVERSE_LIST);
     }
 
   return ret;
@@ -326,17 +564,44 @@ test_xnd_snprintf (void)
 
   for (unsigned int i = 0; i < total; i++)
     {
-      ret = SUBTEST_CHECK (&tests[i]);
+      ret = SUBTEST_CHECK (tests[i]);
       cnt += !!(ret == 0);
     }
 
-  return (cnt < total ? -1 : 0);
+  return (cnt < total);
+}
+
+static int
+test_xnd_vsnprintf (void)
+{
+  struct subtest tests[] =
+    {
+      SUBTEST_DECL (test_xnd_vsnprintf_literal),
+      SUBTEST_DECL (test_xnd_vsnprintf_string),
+      SUBTEST_DECL (test_xnd_vsnprintf_char),
+      SUBTEST_DECL (test_xnd_vsnprintf_int),
+      SUBTEST_DECL (test_xnd_vsnprintf_uint),
+      SUBTEST_DECL (test_xnd_vsnprintf_hex),
+      SUBTEST_DECL (test_xnd_vsnprintf_ptr),
+      SUBTEST_DECL (test_xnd_vsnprintf_diverse),
+    };
+
+  int ret = 0;
+  unsigned int cnt = 0, total = countof (tests);
+
+  for (unsigned int i = 0; i < total; i++)
+    {
+      ret = SUBTEST_CHECK (tests[i]);
+      cnt += !!(ret == 0);
+    }
+
+  return (cnt < total);
 }
 
 static int
 do_test (void)
 {
-  return test_xnd_snprintf ();
+  return (test_xnd_snprintf () || test_xnd_vsnprintf ());
 }
 
 #define TEST_FUNCTION do_test

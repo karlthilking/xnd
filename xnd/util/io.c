@@ -50,6 +50,8 @@ struct iobuf
   size_t size;
 };
 
+static inline void iobuf_finalize (struct iobuf *buf)
+  __nonnull__ ((1));	
 static inline void iobuf_putchar (struct iobuf *buf, char c)
   __nonnull__ ((1));
 static inline void iobuf_putstrn (struct iobuf *restrict buf,
@@ -66,6 +68,13 @@ static inline void iobuf_puthex (struct iobuf *restrict buf,
 				 unsigned long long n,
 				 bool upper, bool prefix)
   __nonnull__ ((1));
+
+static inline void
+iobuf_finalize (struct iobuf *buf)
+{
+  const size_t index = min (buf->len, buf->size - 1);
+  buf->buf[index] = '\0';
+}
 
 static inline void
 iobuf_putchar (struct iobuf *buf, char c)
@@ -336,6 +345,7 @@ xnd_vsnprintf (char *restrict str, size_t size,
   /* Return total length of the string that would have been created
      with unlimited space, even if the resulting string had to be
      truncated */
+  iobuf_finalize (&buf);
   return (int) buf.len;
 }
 
