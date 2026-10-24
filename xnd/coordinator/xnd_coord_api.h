@@ -92,7 +92,7 @@ extern "C"
   pid_t launch_coordinator (bool);
   pid_t get_coord_pid (void);
 
-  int connect_to_coord (void);
+  int connect_to_coord (bool cloexec);
   int send_command_to_coord (struct xnd_msg *, int, bool *);
   int send_msg_to_coord (int, struct xnd_msg *);
   int recv_msg_from_coord (int, struct xnd_msg *);

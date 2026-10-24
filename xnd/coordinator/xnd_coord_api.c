@@ -84,8 +84,12 @@ get_coord_pid (void)
   return coord_pid;
 }
 
+/* connect_to_coord:
+   Open a new connection to the coordinator. cloexec should be false
+   only for the connection that is moved to XND_COORD_FD, which is
+   inherited across exec on purpose (see connect_to_coord_on_launch). */
 int
-connect_to_coord (void)
+connect_to_coord (bool cloexec)
 {
   bool retry;
   int fd, ret, tries = 0;
@@ -124,11 +128,14 @@ connect_to_coord (void)
     }
   while (ret != 0);
 
-  ret = fcntl (fd, F_SETFD, FD_CLOEXEC);
-  if (ret != 0)
+  if (cloexec)
     {
-      xnd_perror ("fcntl");
-      goto out;
+      ret = fcntl (fd, F_SETFD, FD_CLOEXEC);
+      if (ret != 0)
+        {
+          xnd_perror ("fcntl");
+          goto out;
+        }
     }
 
 out:
@@ -152,7 +159,7 @@ send_command_to_coord (struct xnd_msg *msg, int timeout, bool *exited)
   if (exited != NULL)
     *exited = false;
 
-  fd = connect_to_coord ();
+  fd = connect_to_coord (true);
   if (fd < 0)
     {
       xnd_error ("failed to connect to coordinator\n");

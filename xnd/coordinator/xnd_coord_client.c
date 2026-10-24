@@ -108,14 +108,20 @@ connect_to_coord_on_launch (void)
 {
   int fd;
 
-  fd = connect_to_coord ();
+  fd = connect_to_coord (false);
   if (fd < 0)
     xnd_panic ("failed to connect to coordinator\n");
 
+  /* If this image was exec'd, XND_COORD_FD still holds the previous
+     image's connection (it is deliberately not close-on-exec). Keep it
+     open until the coordinator has re-registered this process on the
+     new connection; closing it first lets the coordinator see the old
+     connection close and drop the process. */
+  coord_fd = fd;
+  send_recv_coord_handshake (XND_CONNECT_LAUNCH);
+
   coord_fd = xnd_fd_change (fd, XND_COORD_FD);
   xnd_assert (coord_fd == XND_COORD_FD);
-
-  send_recv_coord_handshake (XND_CONNECT_LAUNCH);
 #if DEVELOPMENT || DEBUG
   xnd_log_printf ("Registered with coordinator (on initial launch)\n"
              "_virt_pid=%d, _virt_ppid=%d\n"
@@ -131,7 +137,7 @@ connect_to_coord_on_restart (void)
 {
   int fd;
 
-  fd = connect_to_coord ();
+  fd = connect_to_coord (false);
   if (fd < 0)
     xnd_panic ("failed to connect to coordinator\n");
 
@@ -237,7 +243,7 @@ coord_client_atfork_prepare (void)
   msg.xnd_ppid = xnd_pid;
   msg.xnd_pgid = xnd_pgid;
 
-  if ((child_coord_fd = connect_to_coord ()) < 0)
+  if ((child_coord_fd = connect_to_coord (false)) < 0)
     {
       xnd_error ("Failed to connect to coordinator for child\n");
       xnd_abort ();
@@ -482,7 +488,7 @@ oob_acquire_and_maybe_init (void)
     return false;
   if (oob_fd == OOB_FD_NULL)
     {
-      fd = connect_to_coord ();
+      fd = connect_to_coord (true);
       if (fd != -1)
         {
           oob_fd = fd;
