@@ -158,14 +158,16 @@ check_terminator (const char *fmt, size_t size,
 __unused static int
 __VSNPRINTF_CHECK (const char *fmt, ...)
 {
-  va_list ap;
+  va_list ap, aq;
   int r1, r2;
   char s1[BUFSZ], s2[BUFSZ];
   const size_t n = BUFSZ;
 
   va_start (ap, fmt);
+  va_copy (aq, ap);
   r1 = xnd_vsnprintf (s1, n, fmt, ap);
-  r2 = vsnprintf (s2, n, fmt, ap);
+  r2 = vsnprintf (s2, n, fmt, aq);
+  va_end (aq);
   va_end (ap);
 
   if (check_return (fmt, n, r1, r2)

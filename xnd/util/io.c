@@ -371,7 +371,7 @@ xnd_vdprintf (int fd, const char *fmt, va_list ap)
 
   buf = alloca (size);
   len = (size_t) xnd_vsnprintf (buf, size, fmt, ap);
-  (void) writeall (fd, buf, min (len, size));
+  (void) writeall (fd, buf, min (len, size - 1));
 
   return (int) len;
 }
