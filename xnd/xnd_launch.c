@@ -218,6 +218,11 @@ launch (int argc, char **argv)
   xnd_assert (setenv ("DYLD_INSERT_LIBRARIES", libxnd_path, 1) == 0);
 
   env_set_dyld_shared_region_private ();
+
+  /* the target must never have a vm_reclaim region: xnd_restart_internal
+     cannot have one either, and a restored libmalloc that expects one
+     traps on its first flush (see env_set_malloc_large_cache_disabled) */
+  env_set_malloc_large_cache_disabled ();
   xnd_printf ("Executing %s (pid=%d)\n", new_argv[0], getpid ());
   err = execvp (new_argv[0], new_argv);
   if (err != 0)

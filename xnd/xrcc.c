@@ -1,4 +1,4 @@
-/* xnd_restart_cc.c
+/* xrcc.c
 
    Compile xnd_restart_internal with the correct segment addresses
    and segment sizes required to prevent the restart binary's memory
@@ -13,24 +13,33 @@
    __DATA_CONST, and __LINKEDIT segments
 
    dyld with map itself above the main executable (xnd_restart_internal)
-   so we reserve 100 pages (16kb each) between the high address of
+   so we reserve XND_RESTART_DYLD_SIZE bytes between the high address of
    xnd_restart_internal and where it should map its restart stack.
 
-   restart #defines (14):
+   xnd_restart_internal is compiled twice: a probe build (with
+   placeholder #define's) measures the size of each segment, and the
+   final build pins each segment with -segaddr. The final build is
+   then verified to have exactly the layout measured by the probe;
+   xnd_restart_internal only reads the #define's through global
+   variables, so their values do not change its code or segment sizes.
+
+   restart #defines (12):
     - XND_RESTART_TEXT_ADDR + XND_RESTART_TEXT_SIZE
-    - XND_RESTART_DATA_CONST + XND_RESTART_DATA_CONST_SIZE
+    - XND_RESTART_DATA_CONST_ADDR + XND_RESTART_DATA_CONST_SIZE
     - XND_RESTART_DATA_ADDR + XND_RESTART_DATA_SIZE
     - XND_RESTART_LINKEDIT_ADDR + XND_RESTART_LINKEDIT_SIZE
     - XND_RESTART_DYLD_ADDR + XND_RESTART_DYLD_SIZE
     - XND_RESTART_STACK_ADDR + XND_RESTART_STACK_SIZE
-    - XND_GUARD_ADDR + XND_GUARD_SIZE (for vm_reclaim buffer)
 
-   linker flags (5):
+   linker flags (4, or 5 with USE_LD_CLASSIC):
     - -Wl,-segaddr,__TEXT,<text-address>
-    - -Wl,-segaddr,__DATA,<data-address>
     - -Wl,-segaddr,__DATA_CONST,<data-const-address>
+    - -Wl,-segaddr,__DATA,<data-address>
     - -Wl,-segaddr,__LINKEDIT,<linkedit-address>
-    - -Wl, -ldclassic
+    - -Wl,-ld_classic
+
+   The #define's are written to the file given with -MF <file>, or to
+   stdout if -MF is not given.
  */
 
 #include "common/compiler.h"
@@ -44,6 +53,7 @@
 #include <limits.h>
 #include <mach/mach_vm.h>
 #include <mach/vm_page_size.h>
+#include <removefile.h>
 #include <mach-o/loader.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -62,7 +72,7 @@
   do {                                                          \
     dprintf (2, "%s: " RED fmt RESET, XRCC, ##__VA_ARGS__);     \
     exit (1);                                                   \
-  } while (0);
+  } while (0)
 
 #ifndef trunc_page
 # define trunc_page(x) ((x) & ~vm_page_mask)
@@ -91,52 +101,8 @@
 # define CC "clang"
 #endif
 
-/* parameters for xnd_restart_internal's fabricated guard page, used
-   for relocating the kernel-mapped deferred reclaim buffer
-   (also overridable with -DXND_RESTART_GUARD_<name>=<value>) */
-#ifndef XND_RESTART_GUARD_ADDR
-# define XND_RESTART_GUARD_ADDR 0x0000000100000000ULL
-#endif
-#ifndef XND_RESTART_GUARD_SIZE
-# define XND_RESTART_GUARD_SIZE 0x000000007b500000ULL
-#endif
-#ifndef XND_RESTART_GUARD_SEGNAME
-# define XND_RESTART_GUARD_SEGNAME "__XND"
-#endif
-#ifndef XND_RESTART_GUARD_SECTNAME
-# define XND_RESTART_GUARD_SECTNAME "__xnd"
-#endif
-#ifndef XND_RESTART_GUARD_PROT
-# define XND_RESTART_GUARD_PROT "---" /* VM_PROT_NONE */
-#endif
-#ifndef XND_RESTART_GUARD_MAXPROT
-# define XND_RESTART_GUARD_MAXPROT "rwx" /* VM_PROT_ALL */
-#endif
-
-/* Assume that deferred reclaim buffer will be present during C/R if
-   not specified otherwise. If the deferred reclaim buffer has to
-   be relocated manually, then we will do so by inserting a guard
-   region into xnd_restart_internal */
-#ifndef DEFERRED_RECLAIM_ENABLED
-# define DEFERRED_RECLAIM_ENABLED 1
-#endif
-
-/* number of command-line arguments passed to segpatch when patching
-   xnd_restart_internal (not including the path of segpatch itself):
-
-   ./segpatch xnd_restart_internal --vmaddr <addr> --vmsize <size>
-   --segname <segname> --sectname <sectname> --prot <prot>/<maxprot> */
-#define SEGPATCH_NARGS 11
-
-/* Number of #define's and linker flags used when compiling
-   xnd_restart_internal. If the deferred reclaim buffer is not enabled,
-   then there are two less definitions (omitting XND_RESTART_GUARD_ADDR
-   and XND_RESTART_GUARD_SIZE). */
-#if DEFERRED_RECLAIM_ENABLED
-# define NDEFS 14
-#else
-# define NDEFS 12
-#endif
+/* Number of #define's used when compiling xnd_restart_internal */
+#define NDEFS 12
 
 /* disable -Wl,-ld_classic by default, assuming that the newer linker
    will support and honor our -segaddr linker flags */
@@ -168,9 +134,6 @@ struct restart_params
 
   uint64_t stack_addr;
   uint64_t stack_size;
-
-  uint64_t guard_addr;
-  uint64_t guard_size;
 
   char *defs[NDEFS];
   char *ldflags[NLDFLAGS];
@@ -226,7 +189,7 @@ static void macho_segments_init (struct macho_segments *, const char *);
 static int subprocess_run (char *const *);
 
 static void xrcompile (struct argvec *);
-static void xrpatch (const char *, struct restart_params *) __unused;
+static void xrverify (const char *, const struct restart_params *);
 
 static void usage (void);
 
@@ -235,27 +198,23 @@ static void usage (void);
    identifier' compiler errors */
 static const char *empty_defs[] =
   {
-    "-DXND_RESTART_TEXT_ADDR=0ULL",
-    "-DXND_RESTART_TEXT_SIZE=0ULL",
-    "-DXND_RESTART_DATA_CONST_ADDR=0ULL",
-    "-DXND_RESTART_DATA_CONST_SIZE=0ULL",
-    "-DXND_RESTART_DATA_ADDR=0ULL",
-    "-DXND_RESTART_DATA_SIZE=0ULL",
-    "-DXND_RESTART_LINKEDIT_ADDR=0ULL",
-    "-DXND_RESTART_LINKEDIT_SIZE=0ULL",
-    "-DXND_RESTART_DYLD_ADDR=0ULL",
-    "-DXND_RESTART_DYLD_SIZE=0ULL",
-    "-DXND_RESTART_STACK_ADDR=0ULL",
-    "-DXND_RESTART_STACK_SIZE=0ULL",
-#if DEFERRED_RECLAIM_ENABLED
-    "-DXND_RESTART_GUARD_ADDR=0ULL",
-    "-DXND_RESTART_GUARD_SIZE=0ULL"
-#endif
+    "-DXND_RESTART_TEXT_ADDR=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_TEXT_SIZE=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_DATA_CONST_ADDR=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_DATA_CONST_SIZE=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_DATA_ADDR=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_DATA_SIZE=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_LINKEDIT_ADDR=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_LINKEDIT_SIZE=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_DYLD_ADDR=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_DYLD_SIZE=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_STACK_ADDR=0xFFFFFFFFFFFFFFFFULL",
+    "-DXND_RESTART_STACK_SIZE=0xFFFFFFFFFFFFFFFFULL",
   };
 _Static_assert (countof (empty_defs) == NDEFS,
                 "xnd_restart_cc: unexpected number of empty #define's");
 
-static const char *macronames[14] =
+static const char *macronames[] =
   {
     "XND_RESTART_TEXT_ADDR",
     "XND_RESTART_TEXT_SIZE",
@@ -269,10 +228,6 @@ static const char *macronames[14] =
     "XND_RESTART_DYLD_SIZE",
     "XND_RESTART_STACK_ADDR",
     "XND_RESTART_STACK_SIZE",
-#if DEFERRED_RECLAIM_ENABLED
-    "XND_RESTART_GUARD_ADDR",
-    "XND_RESTART_GUARD_SIZE"
-#endif
   };
 _Static_assert (countof (macronames) == NDEFS,
                 "xnd_restart_cc: unexpected number of macro names");
@@ -458,22 +413,14 @@ restart_params_init (struct restart_params *params,
   size = round_page (XND_RESTART_STACK_SIZE);
   set_segsize_param (stack_size, size);
 
-  /* 13. restart guard address */
-#if DEFERRED_RECLAIM_ENABLED
-  addr = round_page (XND_RESTART_GUARD_ADDR);
-  set_segaddr_param (guard_addr, addr, NULL);
-
-  /* 14. restart guard size */
-  size = round_page (XND_RESTART_GUARD_SIZE);
-  set_segsize_param (guard_size, size);
-#endif
-  
   /* final ldflag to make sure -Wl,-segaddr is recognized by the
      linker if we are on a newer version */
 #if USE_LD_CLASSIC
   params->ldflags[lcnt++] = xstrdup ("-Wl,-ld_classic");
 #endif
-  assert (lcnt == NLDFLAGS && dcnt == NDEFS);
+  if (lcnt != NLDFLAGS || dcnt != NDEFS)
+    panic ("unexpected number of flags (ldflags: %zu, #define's: %zu)\n",
+           lcnt, dcnt);
 
 #undef set_segaddr_param
 #undef set_segsize_param
@@ -517,15 +464,21 @@ macho_segments_init (struct macho_segments *segments, const char *path)
   mh = (struct mach_header_64 *) addr;
   /* mach header should be 64-bit and should not be in big endian
      byte order */
-  assert (mh->magic == MH_MAGIC_64);
+  if (mh->magic != MH_MAGIC_64)
+    panic ("%s: not a 64-bit Mach-O executable\n", path);
 
   /* load command start after mach header */
   base = (uintptr_t) addr + sizeof (struct mach_header_64);
   do
     {
       lc = (struct load_command *) (base + offset);
-      /* expecting LC_SEGMENT_64 only */
-      assert (lc->cmd != LC_SEGMENT);
+      if (lc->cmdsize == 0 || offset + lc->cmdsize > mh->sizeofcmds)
+        panic ("%s: malformed load command at offset %zu\n",
+               path, (size_t) offset);
+      /* skip all load commands besides segments, which must be
+         64-bit */
+      if (lc->cmd == LC_SEGMENT)
+        panic ("%s: unexpected LC_SEGMENT\n", path);
       if (lc->cmd != LC_SEGMENT_64)
         continue;
 
@@ -543,10 +496,7 @@ macho_segments_init (struct macho_segments *segments, const char *path)
 
   if (text == NULL || data_const == NULL
       || data == NULL || linkedit == NULL)
-    {
-      fprintf (stderr, "failed to find all segments in %s\n", path);
-      exit (1);
-    }
+    panic ("failed to find all segments in %s\n", path);
 
   memcpy (&segments->mh, mh, sizeof (*mh));
   memcpy (&segments->text, text, sizeof (*text));
@@ -617,70 +567,60 @@ xrcompile (struct argvec *options)
   free (args);
 }
 
+/* Verify that each segment of the final executable is at the address
+   and has the (page-rounded) size advertised in the #define's, which
+   were measured from the probe build */
 static void
-xrpatch (const char *out, struct restart_params *params)
+xrverify (const char *path, const struct restart_params *params)
 {
-  int exit_status;
-  char prot[8], segpatch[PATH_MAX];
-  char *addr, *size;
+  bool ok = true;
+  struct macho_segments segments = {0};
 
-  /* Find path to segpatch; BUILD=<value> must be specified in the
-     environment so we know what directory segpatch will be located in */
-  {
-    char *build = getenv ("BUILD");
-    if (build == NULL)
-      panic ("BUILD not in environment\n");
+  macho_segments_init (&segments, path);
 
-    strlcpy (segpatch, build, sizeof (segpatch));
-    strlcat (segpatch, "/", sizeof (segpatch));
-    strlcat (segpatch, "segpatch", sizeof (segpatch));
+#define verify_segment(seg, field)                                      \
+  do {                                                                  \
+    const struct segment_command_64 *__s = &segments.seg;               \
+    const uint64_t __size = round_page (__s->vmsize);                   \
+    if (__s->vmaddr != params->field##_addr                             \
+        || __size != params->field##_size)                              \
+      {                                                                 \
+        dprintf (2, "%s: %s: expected 0x%llX-0x%llX, "                  \
+                 "got 0x%llX-0x%llX\n", XRCC, __s->segname,             \
+                 params->field##_addr,                                  \
+                 params->field##_addr + params->field##_size,           \
+                 __s->vmaddr, __s->vmaddr + __size);                    \
+        ok = false;                                                     \
+      }                                                                 \
+  } while (0)
 
-    if (access (segpatch, X_OK) != 0)
-      panic ("segpatch not found: %s\n", segpatch);
-  }
+  verify_segment (text, text);
+  verify_segment (data_const, data_const);
+  verify_segment (data, data);
+  verify_segment (linkedit, linkedit);
+#undef verify_segment
 
-  xasprintf (&addr, "0x%llX", params->guard_addr);
-  xasprintf (&size, "0x%llX", params->guard_size);
-
-  /* vm protection string: <prot>/<maxprot> */
-  strlcpy (prot, XND_RESTART_GUARD_PROT, sizeof (prot));
-  strlcat (prot, "/", sizeof (prot));
-  strlcat (prot, XND_RESTART_GUARD_MAXPROT, sizeof (prot));
-
-  /* ./segpatch xnd_restart_internal --vmaddr <addr> --vmsize <size>
-     --segname <segname> --sectname <sectname> --prot <prot>/<maxprot> */
-  const char *const args[] =
+  if (!ok)
     {
-      segpatch, out,
-      "--vmaddr", addr,
-      "--vmsize", size,
-      "--segname", XND_RESTART_GUARD_SEGNAME,
-      "--sectname", XND_RESTART_GUARD_SECTNAME,
-      "--prot", prot, NULL,
-    };
-
-  exit_status = subprocess_run ((char *const *) args);
-  if (exit_status != 0)
-    {
-      fprintf (stderr, "%s exited %d\n", segpatch, exit_status);
-      exit (1);
+      xunlink (path);
+      panic ("%s: segment layout differs from probe build\n", path);
     }
-
-  free (addr);
-  free (size);
 }
 
 static void
 usage (void)
 {
-  fprintf (stderr, "Usage: %s [options] file ...\n", XRCC);
+  fprintf (stderr, "Usage: %s [options] [-MF defs-file] file ...\n",
+           XRCC);
 }
 
 int
 main (int argc, char *argv[])
 {
   size_t len;
-  const char *path = "a.out";
+  char *probe;
+  FILE *defs_file = stdout;
+  const char *opt, *arg, *path = "a.out", *defs_path = NULL;
   struct argvec cc_args, cflags, srcs;
   struct macho_segments segments = {0};
   struct restart_params params = {0};
@@ -696,19 +636,32 @@ main (int argc, char *argv[])
 
 #define shift *(argc--, argv++)
   shift;
-  while (argc != 0)
+  while (argc > 0)
     {
-      if (strncmp (*argv, "-iquote", strlen ("-iquote")) == 0
-          || strncmp (*argv, "-isystem", strlen ("-isystem")) == 0
-          || strncmp (*argv, "-include", strlen ("-include")) == 0)
+      if ((strcmp (*argv, "-iquote") == 0)
+          || (strcmp (*argv, "-isystem") == 0)
+          || (strcmp (*argv, "-include") == 0)
+          || (strcmp (*argv, "-I") == 0)
+          || (strcmp (*argv, "-L") == 0))
         {
-          argvec_push (&cflags, shift);
-          argvec_push (&cflags, shift);
+          opt = shift;
+          if ((arg = shift) == NULL)
+            panic ("missing path after \"%s\"\n", opt);
+          argvec_pushn (&cflags, 2, opt, arg);
         }
-      else if (strncmp (*argv, "-o", strlen ("-o")) == 0)
+      else if (strcmp (*argv, "-o") == 0)
         {
           shift;
-          path = shift;
+          if ((path = shift) == NULL)
+            panic ("missing path after \"-o\"\n");
+        }
+      else if (strncmp (*argv, "-o", 2) == 0)
+        path = shift + 2;
+      else if (strcmp (*argv, "-MF") == 0)
+        {
+          shift;
+          if ((defs_path = shift) == NULL)
+            panic ("missing path after \"-MF\"\n");
         }
       else if (access (*argv, R_OK) == 0)
         argvec_push (&srcs, shift);
@@ -720,29 +673,39 @@ main (int argc, char *argv[])
   if (srcs.len < 1)
     panic ("no inputs files\n");
 
+  /* compile a probe executable (with placeholder #define's and without
+     linker flags) so we can obtain the LC_SEGMENT_64 load commands for
+     xnd_restart_internal's text, const data, data, and linkedit
+     segments. The probe goes to a temporary path so a failed build
+     never removes a previous output. */
+  xasprintf (&probe, "%s.probe", path);
   len = cflags.len + NDEFS + srcs.len + 2;
   argvec_init (&cc_args, len);
 
   argvec_concat (&cc_args, &cflags);
   argvec_emplace (&cc_args, (const char *const *)empty_defs, NDEFS);
   argvec_concat (&cc_args, &srcs);
-  argvec_pushn (&cc_args, 2, "-o", path);
+  argvec_pushn (&cc_args, 2, "-o", probe);
 
-  /* compile xnd_restart_internal without the #define's and linker flags
-     so we can obtain the LC_SEGMENT_64 load commands for
-     xnd_restart_internal's text, const data, data, and linkedit
-     segments */
   xrcompile (&cc_args);
   argvec_free (&cc_args);
 
-  /* obtain segment sizes from LC_SEGMENT_64 load command in output
-     executable and remove temporary executable */
-  macho_segments_init (&segments, path);
-  xunlink (path);
+  /* obtain segment sizes from LC_SEGMENT_64 load command in the probe
+     executable and remove it */
+  macho_segments_init (&segments, probe);
+  xunlink (probe);
+
+  /* clang also emits <probe>.dSYM when compiling with -g */
+  {
+    char *dsym;
+    xasprintf (&dsym, "%s.dSYM", probe);
+    (void) removefile (dsym, NULL, REMOVEFILE_RECURSIVE);
+    free (dsym);
+  }
+  free (probe);
 
   /* obtain xnd_restart_internal parameters (#define's and ld flags)
-     inferred from the segment sizes found from compiling without
-     and linker flags */
+     inferred from the segment sizes found from the probe build */
   restart_params_init (&params, &segments);
   len = cflags.len + NDEFS + NLDFLAGS + srcs.len + 2;
   argvec_init (&cc_args, len);
@@ -760,19 +723,25 @@ main (int argc, char *argv[])
   argvec_free (&cflags);
   argvec_free (&srcs);
 
-  /* invoke segpatch on xnd_restart_internal to insert our guard region
-     in xnd_restart_internal (only if the deferred reclaim buffer will
-     be present, otherwise this can be skipped) */
-#if DEFERRED_RECLAIM_ENABLED
-  xrpatch (path, &params);
-#endif
+  /* the final executable must have exactly the layout the #define's
+     describe, otherwise other modules would act on a wrong layout */
+  xrverify (path, &params);
 
-  /* print #define's to stdout (captured by the Makefile so they can
-     be reused when compiling other objects interested in
-     xnd_restart_internal's segment locations */
+  /* write #define's (used when compiling other objects interested in
+     xnd_restart_internal's segment locations) */
+  if (defs_path != NULL)
+    {
+      defs_file = fopen (defs_path, "w");
+      if (defs_file == NULL)
+        panic ("%s: %s\n", defs_path, strerror (errno));
+    }
+
   for (size_t i = 0; i < NDEFS; i++)
-    printf ((i + 1 < NDEFS) ? "%s " : "%s\n", params.defs[i]);
-  
+    fprintf (defs_file, (i + 1 < NDEFS) ? "%s " : "%s\n", params.defs[i]);
+
+  if (fclose (defs_file) != 0)
+    panic ("%s: %s\n", defs_path ? defs_path : "stdout", strerror (errno));
+
   restart_params_free (&params);
   exit (0);
 }

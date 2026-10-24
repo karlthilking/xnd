@@ -50,6 +50,7 @@ extern "C"
 
   void env_set_dyld_shared_region_private (void);
   void env_unset_dyld_shared_region (void);
+  void env_set_malloc_large_cache_disabled (void);
   char *env_get_dyld_shared_region (void);
   bool env_dyld_shared_region_is_private (void);
 

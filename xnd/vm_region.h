@@ -151,6 +151,12 @@ extern vm_size_t vm_page_size;
 #define VM_KERN_MEMORY_FILE            20
 #define VM_KERN_MEMORY_MBUF            21
 #define VM_KERN_MEMORY_UBC             22
+
+/* user tag of libmalloc's deferred reclaim ring (shares the value of
+   VM_KERN_MEMORY_UBC, which is a kernel-only tag) */
+#ifndef VM_MEMORY_VM_RECLAIM
+# define VM_MEMORY_VM_RECLAIM 22
+#endif
 #define VM_KERN_MEMORY_SECURITY        23
 #define VM_KERN_MEMORY_MLOCK           24
 #define VM_KERN_MEMORY_REASON          25
@@ -175,8 +181,7 @@ extern "C"
 
   int ckpt_vm_mark_regions (void);
   int ckpt_vm_restore_region (int, struct xnd_vm_region *);
-  mach_vm_address_t ckpt_vm_find_ubc_region (mach_vm_size_t *);
-  int ckpt_vm_remove_xnd_guard (void);
+  mach_vm_address_t ckpt_vm_find_vm_reclaim_region (mach_vm_size_t *);
 
   int ckpt_vm_valid_region (vm_region_submap_info_data_64_t *,
                             mach_vm_address_t, mach_vm_size_t);

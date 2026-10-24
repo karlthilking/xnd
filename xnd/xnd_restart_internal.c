@@ -29,6 +29,13 @@
 
 static bool restart_pause = false;
 
+/* Location of the temporary restart stack. Kept in (non-constant)
+   globals rather than used as immediates so that xrcc's probe build
+   and final build generate identical code and segment sizes, whatever
+   values the XND_RESTART_* #define's take.  */
+mach_vm_address_t xnd_restart_stack_addr = XND_RESTART_STACK_ADDR;
+mach_vm_size_t xnd_restart_stack_size = XND_RESTART_STACK_SIZE;
+
 __noreturn noinline void
 restart (int fd)
 {
@@ -83,8 +90,8 @@ jump (int fd)
 {
   kern_return_t ret;
   void *sp;
-  const mach_vm_size_t size = 1024 * 1024;
-  mach_vm_address_t addr = XND_RESTART_STACK_ADDR;
+  const mach_vm_size_t size = xnd_restart_stack_size;
+  mach_vm_address_t addr = xnd_restart_stack_addr;
 
   /**
          * Make VM object purgable and associate VM_REGION_RESTART_STACK
@@ -152,20 +159,14 @@ main (int argc, char *argv[])
       exit (XND_EXIT_FAILURE);
     }
 
-  addr = ckpt_vm_find_ubc_region (&size);
+  /* xnd_restart spawns us with MallocLargeCache=0 so libmalloc never
+     allocates its (permanent) vm_reclaim region, which would otherwise
+     be placed where the application's memory must be restored */
+  addr = ckpt_vm_find_vm_reclaim_region (&size);
   if (addr > 0 && addr < DYLD_SHARED_CACHE_BASE)
     {
-      xnd_error ("vm reclaim buffer bad address: 0x%llx-0x%llx %llu\n",
-                 addr, addr + size, size);
-      exit (XND_EXIT_FAILURE);
-    }
-                 
-
-  if (ckpt_vm_remove_xnd_guard () < 0)
-    {
-      xnd_error ("failed to deallocate guard: 0x%llx-0x%llx\n",
-                 XND_RESTART_GUARD_ADDR,
-                 XND_RESTART_GUARD_ADDR + XND_RESTART_GUARD_SIZE);
+      xnd_error ("vm_reclaim region in restore range: 0x%llx-0x%llx "
+                 "(was MallocLargeCache=0 ignored?)\n", addr, addr + size);
       exit (XND_EXIT_FAILURE);
     }
 

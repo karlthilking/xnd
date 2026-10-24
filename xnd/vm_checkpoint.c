@@ -97,14 +97,21 @@ ckpt_vm_valid_region (vm_region_submap_info_data_64_t *info,
     case VM_MEMORY_DYLIB:
     case VM_MEMORY_OS_ALLOC_ONCE:
       return 1;
-    case VM_KERN_MEMORY_UBC:
-      /*
-                 * If UBC region address is after the end of the
-                 * shared cache, this should be the UBC region from
-                 * the restart process that was coerced to mapped outside
-                 * the range from 0x100000000-0x180000000, so this region
-                 * should not be saved.
-                 */
+    case VM_MEMORY_VM_RECLAIM:
+      /* libmalloc's deferred reclaim ring. xnd_launch runs the
+         application with MallocLargeCache=0 so it should not have
+         one; a restored ring would not be registered with the kernel
+         and libmalloc would trap on its first flush. */
+      {
+        static bool warned = false;
+        if (!warned)
+          {
+            xnd_warn ("vm_reclaim region present (0x%llx-0x%llx), restart "
+                      "will likely fail (MallocLargeCache=0 not honored?)\n",
+                      addr, addr + size);
+            warned = true;
+          }
+      }
       if (addr >= DYLD_SHARED_CACHE_END)
         return 0;
       return 1;

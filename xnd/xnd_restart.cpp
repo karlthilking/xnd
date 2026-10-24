@@ -99,6 +99,9 @@ static int restore_parent_setup(void)
 		exit(XND_EXIT_FAILURE);
 	}
 
+	/* keep libmalloc's vm_reclaim region out of the restore range */
+	env_set_malloc_large_cache_disabled();
+
 	err = posix_spawn(nullptr, argv[0], nullptr, &attr,
 			  (char *const *)argv, environ);
 	if (err) {

@@ -169,6 +169,18 @@ env_unset_dyld_shared_region (void)
   xnd_assert (unsetenv ("DYLD_SHARED_REGION") == 0);
 }
 
+/* Prevent libmalloc from allocating its deferred reclaim ring (the
+   vm_reclaim region). The kernel maps it permanently at the lowest
+   free address, inside the range the restored application occupies,
+   so xnd_restart_internal must run without it. The application must
+   then run without it as well (set by xnd_launch): after restart the
+   task has no ring registered with the kernel, and libmalloc traps in
+   _xzm_reclaim_force_sync when a flush of its ring fails. */
+void
+env_set_malloc_large_cache_disabled (void)
+{
+  xnd_assert (setenv ("MallocLargeCache", "0", 1) == 0);
+}
 
 char *
 env_get_dyld_shared_region (void)

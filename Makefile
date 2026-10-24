@@ -174,14 +174,13 @@ $(BUILD)/%.o: %.s | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 XRCC_FLAGS := $(CFLAGS) -fsanitize=address,undefined
-$(BUILD)/xrcc: xrcc.c | $(BUILD)/segpatch
-	$(CC) $(XRCC_FLAGS) -o $@ $<
+$(BUILD)/xrcc: xrcc.c | $(BUILD)
+	$(CC) $(XRCC_FLAGS) -DCC='"$(CC)"' -o $@ $<
 
 XRCC := $(BUILD)/xrcc
 $(BUILD)/xnd_restart_internal: $(XND_RESTART_INTERNAL_SRCS) | $(XRCC)
-	BUILD=$(BUILD) \
 	$(XRCC) $(CFLAGS) -fno-stack-protector \
-	-o $@ $^ > $(BUILD)/xnd-restart.defs
+	-MF $(BUILD)/xnd-restart.defs -o $@ $^
 
 $(BUILD)/xnd-restart.defs: $(BUILD)/xnd_restart_internal
 
@@ -227,8 +226,9 @@ test:
 clean:
 	rm -rf *.dSYM *-checkpoints
 	rm -f $(ALL) *.dylib *.o *.ckpt *.dat *.xnd
-	rm -f xnd.log xnd-debug.sh xnd_coordinator_v0
-	rm -f $(BUILD)/segpatch $(BUILD)/xrcc $(BUILD)/*.defs
+	rm -f xnd_coordinator_v0
+	rm -f $(BUILD)/segpatch $(BUILD)/xrcc
+	rm -f $(BUILD)/xnd-restart.defs
 
 .PHONY: all clean test
 .INTERMEDIATE: \
@@ -240,5 +240,4 @@ clean:
 	$(XND_LAUNCH_OBJS) \
 	$(XND_COMMAND_OBJS) \
 	$(BUILD)/segpatch \
-	$(BUILD)/xrcc \
-	$(BUILD)/xnd-restart.defs
+	$(BUILD)/xrcc

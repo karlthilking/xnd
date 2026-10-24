@@ -24,3 +24,4 @@ bin/
 xnd_launch
 xnd_macho_parse
 xnd_restart_internal
+xnd-restart.defs

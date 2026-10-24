@@ -375,7 +375,7 @@ ckpt_vm_restore_region (int fd, struct xnd_vm_region *region)
 }
 
 mach_vm_address_t
-ckpt_vm_find_ubc_region (mach_vm_size_t *out)
+ckpt_vm_find_vm_reclaim_region (mach_vm_size_t *out)
 {
   kern_return_t kr;
   mach_msg_type_number_t count;
@@ -394,7 +394,7 @@ ckpt_vm_find_ubc_region (mach_vm_size_t *out)
       else if (info.is_submap)
         continue;
 
-      if (info.user_tag == VM_KERN_MEMORY_UBC)
+      if (info.user_tag == VM_MEMORY_VM_RECLAIM)
         {
           if (out)
             *out = size;
@@ -405,21 +405,4 @@ ckpt_vm_find_ubc_region (mach_vm_size_t *out)
     }
 
   return (mach_vm_address_t) 0;
-}
-
-int
-ckpt_vm_remove_xnd_guard (void)
-{
-  kern_return_t kr;
-  mach_vm_address_t addr = XND_RESTART_GUARD_ADDR;
-  mach_vm_size_t size = XND_RESTART_GUARD_SIZE;
-
-  kr = mach_vm_deallocate (mach_task_self (), addr, size);
-  if (kr != KERN_SUCCESS)
-    {
-      xnd_error ("mach_vm_deallocate: %s\n", mach_error_string (kr));
-      return -1;
-    }
-
-  return 0;
 }
