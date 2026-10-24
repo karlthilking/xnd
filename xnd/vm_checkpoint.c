@@ -45,6 +45,13 @@ vm_region_from_restart (vm_region_submap_info_data_64_t *info,
   return false;
 }
 
+/* Whether a region has modified pages. pages_dirtied only counts
+   resident dirty pages; modified pages that have been compressed or
+   swapped out are counted in pages_swapped_out instead, and must not
+   cause the region to be skipped. */
+#define REGION_MODIFIED(info) \
+  ((info)->pages_dirtied != 0 || (info)->pages_swapped_out != 0)
+
 int
 ckpt_vm_valid_region (vm_region_submap_info_data_64_t *info,
                       mach_vm_address_t addr, mach_vm_size_t size)
@@ -58,7 +65,7 @@ ckpt_vm_valid_region (vm_region_submap_info_data_64_t *info,
     return 0;
 
   if (DYLD_SHARED_CACHE_REGION (addr, size))
-    return (info->pages_dirtied ? 1 : 0);
+    return (REGION_MODIFIED (info) ? 1 : 0);
 
   switch (info->user_tag)
     {
@@ -76,7 +83,7 @@ ckpt_vm_valid_region (vm_region_submap_info_data_64_t *info,
       return 1;
     case VM_MEMORY_DYLD:
     case VM_MEMORY_DYLD_MALLOC:
-      if (info->pages_resident && info->pages_dirtied)
+      if (REGION_MODIFIED (info))
         {
           xnd_assert (info->max_protection & VM_PROT_WRITE);
           return 1;

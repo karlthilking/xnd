@@ -5,6 +5,7 @@
 #include "vm_region.h"
 #include "util/io.h"
 #include "util/env.h"
+#include "util/log.h"
 #include "util/compress.h"
 
 #include <ucontext.h>
@@ -14,6 +15,15 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+
+/* A page has been modified if it is resident and dirty, or if it was
+   modified and has since been compressed or swapped out: the kernel
+   only reports VM_PAGE_QUERY_PAGE_DIRTY for resident pages, so a
+   modified page that is paged out at checkpoint time would otherwise
+   be lost (zero-filled in malloc regions, or left with the restart
+   process's contents in shared cache regions). */
+#define VM_PAGE_MODIFIED(disp) \
+  (((disp) & (VM_PAGE_QUERY_PAGE_DIRTY | VM_PAGE_QUERY_PAGE_PAGED_OUT)) != 0)
 
 extern uint64_t xnd_epoch;
 extern uint32_t xnd_pid;
@@ -44,7 +54,7 @@ static int
 write_vm_region_dirty (int fd, struct xnd_vm_region *region)
 {
   kern_return_t kr;
-  uint dirty;
+  uint dirty, paged_out;
   ssize_t bytes;
   size_t vec_len, idx;
   mach_vm_size_t size;
@@ -73,9 +83,17 @@ write_vm_region_dirty (int fd, struct xnd_vm_region *region)
     }
 
   xnd_assert (vec_len == region->size / VM_PAGE_SIZE);
-  for (idx = 0, dirty = 0; idx < vec_len; idx++)
-    if ((vec[idx] & VM_PAGE_QUERY_PAGE_DIRTY) != 0)
-      dirty++;
+  for (idx = 0, dirty = 0, paged_out = 0; idx < vec_len; idx++)
+    {
+      if (VM_PAGE_MODIFIED (vec[idx]))
+        dirty++;
+      if ((vec[idx] & VM_PAGE_QUERY_PAGE_PAGED_OUT) != 0)
+        paged_out++;
+    }
+
+  if (paged_out != 0)
+    xnd_log_printf ("region %p (%zu bytes): %u paged out page(s) saved\n",
+                    region->start, region->size, paged_out);
 
   region->pages_dirtied = dirty;
   bytes = writeall (fd, region, sizeof (*region));
@@ -90,7 +108,7 @@ write_vm_region_dirty (int fd, struct xnd_vm_region *region)
           xnd_assert (idx >= dirty);
           break;
         }
-      if ((vec[idx] & VM_PAGE_QUERY_PAGE_DIRTY) != 0)
+      if (VM_PAGE_MODIFIED (vec[idx]))
         {
           pg->offset = idx * VM_PAGE_SIZE;
           if (write_vm_page (fd, region, pg) != 0)
