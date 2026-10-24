@@ -2,6 +2,7 @@
 #ifndef TIME_COMMON_H
 #define TIME_COMMON_H
 
+#include <stdint.h>
 #include <time.h>
 
 #ifndef MSEC_PER_SEC
@@ -28,12 +29,15 @@
 # define NSEC_PER_SEC (1000000000L)
 #endif
 
-#define TIMEVAL_TO_MSEC(tvp) \
-  (((tvp)->tv_sec * MSEC_PER_SEC) + ((tvp)->tv_usec / USEC_PER_MSEC))
-#define TIMEVAL_TO_USEC(tvp) \
-  (((tvp)->tv_sec * USEC_PER_SEC) + ((tvp)->tv_usec))
-#define TIMEVAL_TO_NSEC(tvp) \
-  (((tvp)->tv_sec * NSEC_PER_SEC) + ((tvp)->tv_usec * NSEC_PER_USEC))
+#define TIMEVAL_TO_MSEC(tv) \
+  ((uint64_t) (tv)->tv_sec * MSEC_PER_SEC \
+   + (uint64_t) (tv)->tv_usec / USEC_PER_MSEC)
+#define TIMEVAL_TO_USEC(tv) \
+  ((uint64_t) (tv)->tv_sec * USEC_PER_SEC \
+   + (uint64_t) (tv)->tv_usec)
+#define TIMEVAL_TO_NSEC(tv) \
+  ((uint64_t) (tv)->tv_sec * NSEC_PER_SEC \
+   + (uint64_t) (tv)->tv_usec * NSEC_PER_USEC)
 
 #define TIMEVAL_MSEC_DIFF(end, begin) \
   (TIMEVAL_TO_MSEC (end) - TIMEVAL_TO_MSEC (begin))
@@ -42,12 +46,15 @@
 #define TIMEVAL_NSEC_DIFF(end, begin) \
   (TIMEVAL_TO_NSEC (end) - TIMEVAL_TO_NSEC (begin))
 
-#define TIMESPEC_TO_MSEC(tsp) \
-  (((tsp)->tv_sec * MSEC_PER_SEC) + ((tsp)->tv_nsec / NSEC_PER_MSEC))
-#define TIMESPEC_TO_USEC(tsp) \
-  (((tsp)->tv_sec * USER_PER_SEC) + ((tsp)->tv_nsec / NSEC_PER_USEC))
-#define TIMESPEC_TO_NSEC(tsp) \
-  (((tsp)->tv_sec * NSEC_PER_SEC) + ((tsp)->tv_nsec))
+#define TIMESPEC_TO_MSEC(ts) \
+  ((uint64_t) (ts)->tv_sec * MSEC_PER_SEC \
+   + (uint64_t) (ts)->tv_nsec / NSEC_PER_MSEC)
+#define TIMESPEC_TO_USEC(ts) \
+  ((uint64_t) (ts)->tv_sec * USEC_PER_SEC \
+   + (uint64_t) (ts)->tv_nsec / NSEC_PER_USEC)
+#define TIMESPEC_TO_NSEC(ts) \
+  ((uint64_t) (ts)->tv_sec * NSEC_PER_SEC \
+   + (uint64_t) (ts)->tv_nsec)
 
 #define TIMESPEC_MSEC_DIFF(end, begin) \
   (TIMESPEC_TO_MSEC (end) - TIMESPEC_TO_MSEC (begin))
@@ -56,11 +63,17 @@
 #define TIMESPEC_NSEC_DIFF(end, begin) \
   (TIMESPEC_TO_NSEC (end) - TIMESPEC_TO_NSEC (begin))
 
+/* keeps tv_nsec normalized to [0, NSEC_PER_SEC) */
 #define TIMESPEC_ADD_NSEC(tsp, nsec)             \
   do                                             \
     {                                            \
       (tsp)->tv_sec += ((nsec) / NSEC_PER_SEC);  \
       (tsp)->tv_nsec += ((nsec) % NSEC_PER_SEC); \
+      if ((tsp)->tv_nsec >= NSEC_PER_SEC)        \
+        {                                        \
+          (tsp)->tv_sec++;                       \
+          (tsp)->tv_nsec -= NSEC_PER_SEC;        \
+        }                                        \
     }                                            \
   while (0)
 

@@ -41,17 +41,18 @@ int
 __nanosleep_hook (const struct timespec *rqtp, struct timespec *rmtp)
 {
   int err;
-  long rq, rm;
+  long rq, rm, elapsed;
   struct timeval tv;
   struct timespec start, end;
 
-  rq = TIMESPEC_TO_NSEC (rqtp);
-  if (rq < 0L || rq >= 100000000L)
+  if ((rqtp == NULL) || (rqtp->tv_sec < 0)
+      || (rqtp->tv_nsec < 0) || (rqtp->tv_nsec >= NSEC_PER_SEC))
     {
       errno = EINVAL;
       return -1;
     }
 
+  rq = TIMESPEC_TO_NSEC (rqtp);
   TIMESPEC_TO_TIMEVAL (rqtp, &tv);
   if (rmtp != NULL)
     clock_gettime (CLOCK_MONOTONIC, &start);
@@ -60,7 +61,8 @@ __nanosleep_hook (const struct timespec *rqtp, struct timespec *rmtp)
   if (err != 0 && errno == EINTR && rmtp != NULL)
     {
       clock_gettime (CLOCK_MONOTONIC, &end);
-      rm = rq - TIMESPEC_NSEC_DIFF (&end, &start);
+      elapsed = (long) TIMESPEC_NSEC_DIFF (&end, &start);
+      rm = max (0L, rq - elapsed);
       rmtp->tv_sec = rm / NSEC_PER_SEC;
       rmtp->tv_nsec = rm % NSEC_PER_SEC;
     }
