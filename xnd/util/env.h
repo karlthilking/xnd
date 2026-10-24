@@ -23,10 +23,6 @@
  */
 #define XND_TMP_BINARY_ENV "XND_TMP_BINARY"
 #define XND_UNLINK_TMP_ENV "XND_UNLINK_TMP"
-#define UNLINK_TMP_AT_INIT 0
-#define UNLINK_TMP_AT_EXIT 1
-#define UNLINK_TMP_NEVER   2
-#define UNLINK_TMP_DEFAULT UNLINK_TMP_AT_EXIT
 
 #ifdef __cplusplus
 extern "C"
@@ -41,11 +37,10 @@ extern "C"
 
   void env_set_tmp_binary (char *);
   char *env_get_tmp_binary (void);
-  void env_set_unlink_tmp (char *);
-  bool env_unlink_tmp_at_init (void);
-  bool env_unlink_tmp_at_exit (void);
+  int env_set_unlink_tmp (const char *);
+  char *env_get_unlink_tmp (void);
 
-  void env_set_ckpt_signal (char *);
+  int env_set_ckpt_signal (const char *);
   int env_get_ckpt_signal (void);
 
   void env_set_dyld_shared_region_private (void);
@@ -54,10 +49,10 @@ extern "C"
   char *env_get_dyld_shared_region (void);
   bool env_dyld_shared_region_is_private (void);
 
-  void env_set_zlib_compression (char *);
+  int env_set_zlib_compression (const char *);
   bool env_use_zlib_compression (void);
 
-  void env_set_ckpt_interval (const char *);
+  int env_set_ckpt_interval (const char *);
   int env_get_ckpt_interval (void);
 
 #ifdef __cplusplus

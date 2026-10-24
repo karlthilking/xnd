@@ -21,8 +21,6 @@
    || strncmp (arg, "--interval", sizeof ("--interval")) == 0)
 #define ARG_IS_USE_ZLIB(arg) \
   (strncmp (arg, "--use-zlib", sizeof ("--use-zlib")) == 0)
-#define ARG_IS_NO_ZLIB(arg) \
-  (strncmp (arg, "--no-zlib", sizeof ("no-zlib")) == 0)
 #define ARG_IS_CKPT_SIGNAL(arg) \
   (strncmp (arg, "--ckpt-signal", sizeof ("--ckpt-signal")) == 0)
 #define ARG_IS_UNLINK_TMP(arg) \
@@ -30,106 +28,135 @@
 #define ARG_IS_INVALID(arg) \
   ((strncmp (arg, "--", 2) == 0) || (strlen (arg) == 2 && (arg)[0] == '-'))
 
-static void usage (void);
+static void usage (const char *, ...)
+  __attribute_format__ ((__printf__, 1, 2));
 static void xnd_exit (int);
 static void prepare_args (int, char **, char **);
 static void launch (int, char **);
 
 static const char *help =
-    "OVERVIEW: xnd_launch\n\n"
-    "DESCRIPTION: Launch computation under XND\n\n"
-    "USAGE: ./xnd_launch [options] <binary> [args...]\n\n"
-    "OPTIONS:\n\n"
-    "  -i, --interval <seconds>\n"
-    "       Set checkpoint frequency in seconds\n"
-    "       Default: 0 (manual checkpoints only)\n\n"
-    "  --use-zlib\n"
-    "       Use zlib for checkpoint file compression\n\n"
-    "  --no-zlib\n"
-    "       Don't use zlib for checkpoint file compression\n\n"
-    "  --ckpt-signal <signal>\n"
-    "       Set the signal used for checkpoints\n"
-    "       Default: SIGUSR2\n\n"
-    "  --unlink-tmp [0-2]\n"
-    "       Specify when to unlink temprary arm64 executable\n"
-    "       (Only relevant when xnd_launch is given an arm64e executable)\n"
-    "       0 = unlink immediately; 1 = at exit, 2 = never (default: 1)\n\n"
-    "  --help\n"
-    "       Display this help message\n";
+  "\n"
+  "OVERVIEW: xnd_launch\n"
+  "DESCRIPTION: Launch computation under XND\n"
+  "USAGE: ./xnd_launch [options] <binary> [args...]\n\n"
+  "OPTIONS:\n"
+  "  -i, --interval <seconds>\n"
+  "       Set checkpoint frequency in seconds\n"
+  "       Default: 0 (manual checkpoints only)\n\n"
+  "  --use-zlib <option>\n"
+  "       Configure using zlib for checkpoint file compression\n"
+  "       The two values for <option> are:\n"
+  "        - '0', 'false': Don't compress checkpoint files\n"
+  "        - '1', 'true': Compress checkpoint files with zlib\n"
+  "       Default: 0\n\n"
+  "  --ckpt-signal <signal>\n"
+  "       Set the signal used for checkpoints. The desired checkpoint\n"
+  "       signal should be specified as the integer value of a valid\n"
+  "       signal.\n"
+  "       Default: SIGUSR2\n\n"
+  "  --unlink-tmp <option>\n"
+  "       Specify when to unlink temporary arm64 executable, created if\n"
+  "       launching an arm64e executable with xnd_launch\n"
+  "       The three values for <option> are:\n"
+  "        - 'init': Unlink as soon as possible\n"
+  "        - 'exit': Unlink at exit (when libxnd's destructor runs)\n"
+  "        - 'never': Don't unlink the temporary executable\n"
+  "       Default: exit\n\n"
+  "  --help\n"
+  "       Display this help message\n\n";
 
 int
 main (int argc, char *argv[])
 {
+  const char *opt = NULL, *val = NULL;
+
   if (argc < 2)
     {
-      usage ();
+      usage (NULL);
       xnd_exit (XND_EXIT_FAILURE);
     }
 
-  argv++;
-  argc--;
-  for (;;)
+#define lshift() *(argc++, argv--)
+#define rshift() *(argc--, argv++)
+  (void) rshift ();
+  while (argc > 0)
     {
-      if (ARG_IS_HELP (argv[0]))
+      opt = rshift ();
+      if (ARG_IS_HELP (opt))
         {
-          usage ();
+          usage (NULL);
           xnd_exit (XND_EXIT_SUCCESS);
         }
-      else if (ARG_IS_CKPT_INTERVAL (argv[0]))
+      else if (ARG_IS_CKPT_INTERVAL (opt))
         {
-          env_set_ckpt_interval (argv[1]);
-          argv++;
-          argv++;
-          argc--;
-          argc--;
+          val = rshift ();
+          if (env_set_ckpt_interval (val) != 0)
+            {
+              usage ("Invalid argument: %s %s\n", opt, val);
+              xnd_exit (XND_EXIT_FAILURE);
+            }
         }
-      else if (ARG_IS_USE_ZLIB (argv[0]))
+      else if (ARG_IS_USE_ZLIB (opt))
         {
-          env_set_zlib_compression ("1");
-          argv++;
-          argc--;
+          val = rshift ();
+          if (env_set_zlib_compression (val) != 0)
+            {
+              usage ("Invalid argument: %s %s\n", opt, val);
+              xnd_exit (XND_EXIT_FAILURE);
+            }
         }
-      else if (ARG_IS_NO_ZLIB (argv[0]))
+      else if (ARG_IS_CKPT_SIGNAL (opt))
         {
-          env_set_zlib_compression ("0");
-          argv++;
-          argc--;
+          val = rshift ();
+          if (env_set_ckpt_signal (val) != 0)
+            {
+              usage ("Invalid argument: %s %s\n", opt, val);
+              xnd_exit (XND_EXIT_FAILURE);
+            }
         }
-      else if (ARG_IS_CKPT_SIGNAL (argv[0]))
+      else if (ARG_IS_UNLINK_TMP (opt))
         {
-          env_set_ckpt_signal (argv[1]);
-          argv++;
-          argv++;
-          argc--;
-          argc--;
+          val = rshift ();
+          if (env_set_unlink_tmp (val) != 0)
+            {
+              usage ("Invalid argument: %s %s\n", opt, val);
+              xnd_exit (XND_EXIT_FAILURE);
+            }
         }
-      else if (ARG_IS_UNLINK_TMP (argv[0]))
+      else if (ARG_IS_INVALID (opt))
         {
-          env_set_unlink_tmp (argv[1]);
-          argv++;
-          argv++;
-          argc--;
-          argc--;
-        }
-      else if (ARG_IS_INVALID (argv[0]))
-        {
-          xnd_printf ("Invalid argument: %s\n", argv[0]);
-          usage ();
+          usage ("Invalid option: %s\n", opt);
           xnd_exit (XND_EXIT_FAILURE);
         }
       else
         {
+          (void) lshift ();
           break;
         }
     }
+#undef lshift
+#undef rshift
 
+  if (argc <= 0)
+    {
+      usage ("No target executable specified\n");
+      xnd_exit (XND_EXIT_FAILURE);
+    }
+    
   launch (argc, argv);
 }
 
 static void
-usage (void)
+usage (const char *fmt, ...)
 {
-  xnd_printf ("%s", help);
+  if (fmt != NULL)
+    {
+      va_list ap;
+      va_start (ap, fmt);
+      vdprintf (STDERR_FILENO, fmt, ap);
+      va_end (ap);
+    }
+  dprintf (STDERR_FILENO, "%s", help);
 }
 
 static __noreturn void
@@ -223,7 +250,9 @@ launch (int argc, char **argv)
      cannot have one either, and a restored libmalloc that expects one
      traps on its first flush (see env_set_malloc_large_cache_disabled) */
   env_set_malloc_large_cache_disabled ();
-  xnd_printf ("Executing %s (pid=%d)\n", new_argv[0], getpid ());
+  printf ("Executing %s (pid=%d)\n", new_argv[0], getpid ());
+  fflush (stdout);
+
   err = execvp (new_argv[0], new_argv);
   if (err != 0)
     {

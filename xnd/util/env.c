@@ -90,54 +90,38 @@ env_get_tmp_binary (void)
   return getenv (XND_TMP_BINARY_ENV);
 }
 
-void
-env_set_unlink_tmp (char *value)
+int
+env_set_unlink_tmp (const char *val)
 {
-  setenv (XND_UNLINK_TMP_ENV, value, 1);
+  if (val == NULL)
+    return -1;
+  if (strcmp (val, "init") && strcmp (val, "exit")
+      && strcmp (val, "never"))
+    return -1;
+
+  setenv (XND_UNLINK_TMP_ENV, val, 1);
+  return 0;
 }
 
-bool
-env_unlink_tmp_at_init (void)
+char *
+env_get_unlink_tmp (void)
 {
-  bool ret = false;
-  char *value = getenv (XND_UNLINK_TMP_ENV);
-
-  if (value != NULL)
-    ret = (atoi (value) == UNLINK_TMP_AT_INIT);
-
-  return ret;
+  return getenv (XND_UNLINK_TMP_ENV);
 }
 
-bool
-env_unlink_tmp_at_exit (void)
+int
+env_set_ckpt_signal (const char *val)
 {
-  bool ret = false;
-  char *value = getenv (XND_UNLINK_TMP_ENV);
-
-  if (value != NULL)
-    ret = (atoi (value) == UNLINK_TMP_AT_EXIT);
-
-  return ret;
-}
-
-void
-env_set_ckpt_signal (char *sigstr)
-{
+  int sig;
   char buf[11];
-  int sig, ckptsig;
 
-  sig = atoi (sigstr);
-  ckptsig = XND_DEFAULT_CKPT_SIGNAL;
+  sig = (val != NULL ? atoi (val) : -1);
   if (sig <= 0 || sig >= NSIG || sig == SIGKILL || sig == SIGSTOP)
-    {
-      sig = ckptsig;
-      xnd_warn ("illegal checkpoint signal: %s\n"
-                "continuing with default: %s\n",
-                strsignal (sig), strsignal (ckptsig));
-    }
+    return -1;
 
   snprintf (buf, sizeof (buf), "%d", sig);
   setenv (XND_CKPT_SIGNAL_ENV, buf, 1);
+  return 0;
 }
 
 int
@@ -200,10 +184,26 @@ env_dyld_shared_region_is_private (void)
   return true;
 }
 
-void
-env_set_zlib_compression (char *value)
+int
+env_set_zlib_compression (const char *val)
 {
-  xnd_assert (setenv (XND_USE_ZLIB_ENV, value, 1) == 0);
+  int ret = -1;
+
+  if (val != NULL)
+    {
+      if (strcmp (val, "0") == 0 || strcmp (val, "false") == 0)
+        {
+          ret = 0;
+          setenv (XND_USE_ZLIB_ENV, "0", 1);
+        }
+      else if (strcmp (val, "1") == 0 || strcmp (val, "true") == 0)
+        {
+          ret = 0;
+          setenv (XND_USE_ZLIB_ENV, "1", 1);
+        }
+    }
+
+  return ret;
 }
 
 bool
@@ -218,29 +218,27 @@ env_use_zlib_compression (void)
   return false;
 }
 
-void
-env_set_ckpt_interval (const char *value)
+int
+env_set_ckpt_interval (const char *val)
 {
-  int ckpt_interval = atoi (value);
+  int secs;
 
-  if (value == NULL || ckpt_interval == 0)
-    {
-      unsetenv (XND_CKPT_INTERVAL_ENV);
-      return;
-    }
+  secs = (val != NULL ? atoi (val) : -1);
+  if (secs < 0)
+    return -1;
 
-  xnd_assert (setenv (XND_CKPT_INTERVAL_ENV, value, 1) == 0);
+  setenv (XND_CKPT_INTERVAL_ENV, val, 1);
+  return 0;
 }
 
 int
 env_get_ckpt_interval (void)
 {
-  char *value = NULL;
-  int ckpt_interval = 0;
+  int secs;
+  char *val = NULL;
 
-  value = getenv (XND_CKPT_INTERVAL_ENV);
-  if (value != NULL)
-    ckpt_interval = atoi (value);
+  val = getenv (XND_CKPT_INTERVAL_ENV);
+  secs = (val != NULL ? atoi (val) : 0);
 
-  return ckpt_interval;
+  return secs;
 }

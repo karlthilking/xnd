@@ -236,7 +236,7 @@ static void
 xnd_setup (void)
 {
   int ret, sig;
-  char *tmp;
+  char *tmp, *opt;
   struct sigaction sa;
   const struct xnd_error_ops ops =
     {
@@ -277,17 +277,24 @@ xnd_setup (void)
   pid_table_init ();
   pid_table_init_pid_info ();
 
+  /* If libxnd was loaded into a temporary arm64 executable and
+     xnd_launch was executed with "--unlink-tmp init", unlink the
+     temporary executable now */
   tmp = env_get_tmp_binary ();
-  if (tmp != NULL && env_unlink_tmp_at_init ())
-    unlink (tmp);
-
+  if (tmp != NULL)
+    {
+      opt = env_get_unlink_tmp ();
+      if (opt != NULL && strcmp (opt, "init") == 0)
+        unlink (tmp);
+    }
+      
   set_xnd_state (XND_RUNNING);
 }
 
 static void
 xnd_cleanup (void)
 {
-  char *tmp;
+  char *tmp, *opt;
 
   set_xnd_state (XND_EXITING);
   disconnect_from_coord ();
@@ -296,7 +303,15 @@ xnd_cleanup (void)
   fd_table_destroy ();
   thread_list_destroy ();
 
+  /* If libxnd was loaded into a temporary arm64 executable, unlink the 
+     temporary executable now if the unlink option is specified as exit
+     ("--unlink-tmp exit") or no option was given (unlink at exit is the
+     default behavior) */
   tmp = env_get_tmp_binary ();
-  if (tmp != NULL && env_unlink_tmp_at_exit ())
-    unlink (tmp);
+  if (tmp != NULL)
+    {
+      opt = env_get_unlink_tmp ();
+      if (opt == NULL || strcmp (opt, "exit") == 0)
+        unlink (tmp);
+    }
 }
