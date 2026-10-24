@@ -95,8 +95,6 @@ static pthread_mutex_t ckpt_mtx = PTHREAD_MUTEX_INITIALIZER;
 void
 thread_list_init (void)
 {
-  int sig, err;
-
   TAILQ_INIT (&thread_list);
 
   xpthread_key_create (&tlv_flag_key, NULL);
@@ -513,7 +511,6 @@ thread_reap (struct thread_info *t)
 static void
 thread_fini (void *arg)
 {
-  bool ok;
   struct thread_info *self = (struct thread_info *) arg;
 
   xnd_atomic_cmpxchg_spin_acquire (&self->ti_state, TS_RUNNING, TS_ZOMBIE);
@@ -741,7 +738,6 @@ ckpt_thread_work (void *arg)
   restart = true;
   for (;;)
     {
-      xnd_log_ckpt_thread_info (myself);
       /*
      * Wait until coordinator sends XND_CKPT_REQUEST, and
      * transition from XND_RUNNING to XND_CKPT_PENDING.
@@ -859,7 +855,7 @@ void
 raise_pending_signals (void)
 {
   int sig, ckptsig = env_get_ckpt_signal ();
-  pid_t pid = _real_getpid ();
+  pid_t pid = xnd_sys_getpid ();
 
   for (sig = 1; sig < NSIG; sig++)
     {

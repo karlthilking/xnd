@@ -3,6 +3,7 @@
 #include "fd.h"
 #include <fcntl.h>
 #include <errno.h>
+#include <unistd.h>
 
 bool
 xnd_fd_available (int fd)

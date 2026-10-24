@@ -165,12 +165,12 @@ sigaction_hook (int sig, const struct sigaction *act, struct sigaction *oact)
 static inline void
 sigmask_clean (sigset_t *set)
 {
-  int ckptsig = env_get_ckpt_signal ();
+  int sig = env_get_ckpt_signal ();
 
-  if (sigismember (set, ckptsig))
+  if (sigismember (set, sig))
     {
-      xnd_warn ("can't mask signal: %s\n", strsignal (ckptsig));
-      sigdelset (set, ckptsig);
+      xnd_psignal (sig, "signal is reserved for checkpoint");
+      sigdelset (set, sig);
     }
 }
 

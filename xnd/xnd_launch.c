@@ -1,18 +1,19 @@
 /* xnd_launch.c */
-#include "xnd/xnd.h"
-#include "ckptfile.h"
-#include "util/path.h"
-#include "util/log.h"
-#include "util/env.h"
-#include "platform/exe.h"
-#include "platform/macho.h"
-#include "coordinator/xnd_coord_api.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <limits.h>
+
+#include "xnd/xnd.h"
+#include "ckptfile.h"
+#include "util/path.h"
+#include "util/env.h"
+#include "util/io.h"
+#include "platform/exe.h"
+#include "platform/macho.h"
+#include "coordinator/xnd_coord_api.h"
 
 #define ARG_IS_HELP(arg) (strncmp (arg, "--help", sizeof ("--help")) == 0)
 #define ARG_IS_CKPT_INTERVAL(arg)          \
@@ -59,7 +60,6 @@ static const char *help =
 int
 main (int argc, char *argv[])
 {
-  xnd_log_setup ();
   if (argc < 2)
     {
       usage ();
@@ -135,7 +135,6 @@ usage (void)
 static __noreturn void
 xnd_exit (int status)
 {
-  xnd_log_cleanup ();
   exit (status);
 }
 
@@ -219,11 +218,6 @@ launch (int argc, char **argv)
   xnd_assert (setenv ("DYLD_INSERT_LIBRARIES", libxnd_path, 1) == 0);
 
   env_set_dyld_shared_region_private ();
-  xnd_trace ("XND_PROGRAM=%s\n"
-             "DYLD_INSERT_LIBRARIES=%s\n"
-             "DYLD_SHARED_REGION=private\n",
-             new_argv[0], libxnd_path);
-
   xnd_printf ("Executing %s (pid=%d)\n", new_argv[0], getpid ());
   err = execvp (new_argv[0], new_argv);
   if (err != 0)

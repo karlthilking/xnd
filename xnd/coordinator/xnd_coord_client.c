@@ -3,6 +3,7 @@
 #include "xnd/xnd_lib.h"
 #include "xnd/util/fd.h"
 #include "xnd/util/env.h"
+#include "xnd/util/log.h"
 #include "xnd/pid/pid.h"
 #include "xnd/pid/pid_table.h"
 #include "xnd_coord_api.h"
@@ -14,6 +15,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <uuid/uuid.h>
+#include <unistd.h>
 
 static bool oob_acquire_and_maybe_init (void);
 static pid_t do_translate_pid (pid_t, enum xnd_msghdr);
@@ -115,7 +117,7 @@ connect_to_coord_on_launch (void)
 
   send_recv_coord_handshake (XND_CONNECT_LAUNCH);
 #if DEVELOPMENT || DEBUG
-  xnd_trace ("Registered with coordinator (on initial launch)\n"
+  xnd_log_printf ("Registered with coordinator (on initial launch)\n"
              "_virt_pid=%d, _virt_ppid=%d\n"
              "_real_pid=%d, _real_ppid=%d\n"
              "xnd_pid=%u, xnd_ppid=%u, xnd_pgid=%u\n",
@@ -138,7 +140,7 @@ connect_to_coord_on_restart (void)
 
   send_recv_coord_handshake (XND_CONNECT_RESTART);
 #if DEVELOPMENT || DEBUG
-  xnd_trace ("Registered with coordinator (post-restart)\n"
+  xnd_log_printf ("Registered with coordinator (post-restart)\n"
              "_virt_pid=%d, _virt_ppid=%d\n"
              "_real_pid=%d, _real_ppid=%d\n"
              "xnd_pid=%u, xnd_ppid=%u, xnd_pgid=%u\n",
@@ -270,7 +272,7 @@ coord_client_atfork_prepare (void)
          * and return child_virt from __fork_wrapper() so the caller of
          * fork() correctly sees the child's virtual pid.
          */
-  xnd_trace ("Child virtual pid: %d\n", msg.virt_pid);
+  xnd_log_printf ("Child virtual pid: %d\n", msg.virt_pid);
   env_set_pid_info (msg.virt_pid, -1, -1, -1);
 }
 
@@ -299,7 +301,7 @@ coord_client_atfork_child (void)
          * via handshake exchange with child
          */
   send_recv_coord_handshake (XND_ATFORK_CHILD);
-  xnd_trace ("Registered with coordinator (after fork):\n"
+  xnd_log_printf ("Registered with coordinator (after fork):\n"
              "_virt_pid=%d, _virt_ppid=%d\n"
              "_real_pid=%d, _real_ppid=%d\n"
              "xnd_pid=%u, xnd_ppid=%u, xnd_pgid=%u\n",

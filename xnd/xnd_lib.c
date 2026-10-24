@@ -11,6 +11,8 @@
 #include "pid/pid.h"
 #include "util/debug.h"
 #include "util/env.h"
+#include "util/io.h"
+#include "util/log.h"
 #include "platform/signal.h"
 #include "pid/pid_table.h"
 #include "pid/pid_table_common.h"
@@ -98,11 +100,6 @@ xnd_postrestart_early (void)
       if (dirfd != -1)
         xnd_ckptfile_unlinkat (dirfd, xnd_pid);
     }
-
-#if DEBUG || DEVELOPMENT
-  xnd_log_shared_cache_info ();
-  xnd_log_main_thread_info ();
-#endif
 }
 
 /*
@@ -190,15 +187,11 @@ xnd_atfork_prepare (void)
 void
 xnd_atfork_child (void)
 {
+  xnd_log_atfork_child ();
   coord_client_atfork_child ();
   pid_table_atfork_child ();
   thread_list_atfork_child ();
   set_xnd_state (XND_RUNNING);
-
-#if DEVELOPMENT || DEBUG
-  xnd_log_mach_port_info ();
-  xnd_log_shared_cache_info ();
-#endif
 }
 
 void
@@ -228,8 +221,8 @@ xnd_register_fork_handlers (void)
   if (xnd_atfork_registered)
     return;
 
-  err =
-      pthread_atfork (xnd_atfork_prepare, xnd_atfork_parent, xnd_atfork_child);
+  err = pthread_atfork (xnd_atfork_prepare, xnd_atfork_parent,
+                        xnd_atfork_child);
   if (err != 0)
     {
       xnd_strerror ("pthread_atfork", err);
@@ -245,7 +238,21 @@ xnd_setup (void)
   int ret, sig;
   char *tmp;
   struct sigaction sa;
+  const struct xnd_error_ops ops =
+    {
+      .vdprintf = xnd_vdprintf,
+      .vsnprintf = xnd_vsnprintf,
+    };
 
+  /* libxnd cannot use libc stdio (allocating, takes locks) to report
+     errors, so use the stack-based routines instead */
+  xnd_error_set_io (&ops);
+
+  /* initialize fd table before xnd_log_setup registers its opened
+     log file with the fd table, and set up the log before anything
+     else so it records the coordinator registration */
+  fd_table_init ();
+  xnd_log_setup ();
   connect_to_coord_on_launch ();
 
   if (do_tsd_runtime_checks () != true)
@@ -266,9 +273,7 @@ xnd_setup (void)
       xnd_abort ();
     }
 
-  fd_table_init ();
   thread_list_init ();
-
   pid_table_init ();
   pid_table_init_pid_info ();
 
@@ -277,13 +282,6 @@ xnd_setup (void)
     unlink (tmp);
 
   set_xnd_state (XND_RUNNING);
-
-#if DEVELOPMENT || DEBUG
-  xnd_log_mach_port_info ();
-  xnd_log_shared_cache_info ();
-  xnd_log_main_thread_info ();
-  dump_debug_info ();
-#endif
 }
 
 static void
@@ -294,12 +292,11 @@ xnd_cleanup (void)
   set_xnd_state (XND_EXITING);
   disconnect_from_coord ();
 
+  xnd_log_cleanup ();
   fd_table_destroy ();
   thread_list_destroy ();
 
   tmp = env_get_tmp_binary ();
   if (tmp != NULL && env_unlink_tmp_at_exit ())
     unlink (tmp);
-
-  xnd_log_cleanup ();
 }

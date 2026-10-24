@@ -1,8 +1,4 @@
 /* debug.c */
-#include "xnd/xnd.h"
-#include "xnd/xnd_lib.h"
-#include "xnd/platform/exe.h"
-#include "xnd/util/env.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -12,68 +8,52 @@
 #include <limits.h>
 #include <mach-o/dyld.h>
 
-static inline s32
-main_image_index (void)
+#include "xnd/xnd.h"
+#include "xnd/xnd_lib.h"
+#include "xnd/platform/exe.h"
+#include "xnd/util/env.h"
+#include "xnd/util/log.h"
+
+struct image_info
+{
+  uint32_t index;
+  const char *name;
+  intptr_t slide;
+};
+
+static bool image_find (const char *, struct image_info *);
+
+static bool
+image_find (const char *target, struct image_info *info)
 {
   const char *name = NULL;
-  char *program = env_get_program_name ();
 
-  for (s32 i = 0; i < _dyld_image_count (); i++)
+  for (uint32_t i = 0; i < _dyld_image_count (); i++)
     {
       name = _dyld_get_image_name (i);
-      if (name == NULL)
-        continue;
-      if (strstr (name, program) || strstr (program, name))
-        return i;
+      if (name != NULL && strstr (name, target) != NULL)
+        {
+          info->index = i;
+          info->name = name;
+          info->slide = _dyld_get_image_vmaddr_slide (i);
+          return true;
+        }
     }
 
-  return -1;
-}
-
-static inline s32
-libxnd_image_index (void)
-{
-  const char *name = NULL;
-  const u32 count = _dyld_image_count ();
-
-  for (s32 i = 0; i < count; i++)
-    {
-      name = _dyld_get_image_name (i);
-      if (name != NULL && strstr (name, "libxnd.dylib"))
-        return i;
-    }
-
-  return -1;
+  return false;
 }
 
 void
 dump_debug_info (void)
 {
-  s32 image_idx, libxnd_idx;
-  intptr_t image_slide = -1, libxnd_slide = -1;
-  const char *image_name = NULL, *libxnd_name = NULL;
+  struct image_info info;
+  const char fmt[] = "%s: index=%u, name=%s, slide=0x%lx\n";
 
-  image_idx = main_image_index ();
-  if (image_idx != -1)
-    {
-      image_name = _dyld_get_image_name (image_idx);
-      image_slide = _dyld_get_image_vmaddr_slide (image_idx);
-    }
+  xnd_log_printf ("debug info (%d):\n", xnd_sys_getpid ());
 
-  libxnd_idx = libxnd_image_index ();
-  if (libxnd_idx != -1)
-    {
-      libxnd_name = _dyld_get_image_name (libxnd_idx);
-      libxnd_slide = _dyld_get_image_vmaddr_slide (libxnd_idx);
-    }
+  if (image_find ("libxnd.dylib", &info))
+    xnd_log_printf (fmt, "libxnd", info.index, info.name, info.slide);
 
-  xnd_trace ("Debug info:\n"
-             " main image index: %d\n"
-             "  main image name: %s\n"
-             " main image slide: 0x%lx\n"
-             "     libxnd index: %d\n"
-             "      libxnd name: %s\n"
-             "     libxnd slide: 0x%lx\n",
-             image_idx, image_name, image_slide, libxnd_idx, libxnd_name,
-             libxnd_slide);
+  if (image_find (env_get_program_name (), &info))
+    xnd_log_printf (fmt, "main image", info.index, info.name, info.slide);
 }

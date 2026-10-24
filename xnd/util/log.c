@@ -1,178 +1,121 @@
 /* log.c */
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <mach/mach.h>
-#include <mach-o/dyld.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <stdarg.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "xnd/xnd.h"
-#include "xnd/tls.h"
-#include "xnd/shared_cache.h"
-#include "xnd/thread_info.h"
+#include "xnd/fd_table.h"
+#include "xnd/util/io.h"
 #include "xnd/util/log.h"
-#include "xnd/util/path.h"
+
+#define LOG_DIR "/tmp/xnd"
+#define LOG_PATH_MAX (const_strlen (LOG_DIR "/") + 10 + sizeof (".log"))
+
+/* truncate an existing log file not modified in this many seconds */
+#define LOG_STALE_SECS (60 * 30)
+
+extern u32 xnd_pid;
 
 static int log_fd = -1;
-static int log_level = XND_DEFAULT_LOG_LEVEL;
-static pid_t log_pid = -1;
+static char log_path[LOG_PATH_MAX];
+
+/* whether this process created the log file; children share the
+   file after fork, but only its creator removes it (this survives
+   checkpoint-restart, unlike the real pid) */
+static bool log_owner = false;
+
+static u32
+log_pid (void)
+{
+  return (xnd_pid != 0 ? xnd_pid : (u32) xnd_sys_getpid ());
+}
+
+static bool
+log_stale (const char *path)
+{
+  struct stat st;
+  struct timespec now;
+
+  if (stat (path, &st) != 0)
+    return true;
+
+  clock_gettime (CLOCK_REALTIME, &now);
+  return ((now.tv_sec - st.st_mtime) >= LOG_STALE_SECS);
+}
 
 void
 xnd_log_setup (void)
 {
-  int fd;
-  size_t len;
-  char *level_str, pid_str[11];
+  int ret, oflag = O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC;
+  const mode_t mode = 0666;
 
-  level_str = getenv ("XND_LOG_LEVEL");
-  if (level_str != NULL)
-    log_level = min (atoi (level_str), XND_MAX_LOG_LEVEL);
+  ret = xnd_snprintf (log_path, sizeof (log_path), LOG_DIR "/%d.log",
+                      xnd_sys_getpid ());
+  xnd_assert (ret < sizeof (log_path));
 
-  if (log_level < XND_TRACING)
-    return;
+  if (mkdir (LOG_DIR, 0777) != 0 && errno != EEXIST)
+    {
+      xnd_perror ("mkdir");
+      return;
+    }
 
-  log_pid = _real_getpid ();
-  fd = open ("xnd.log", O_WRONLY | O_CREAT | O_APPEND, 0666);
-  if (fd < 0)
+  if (log_stale (log_path))
+    oflag |= O_TRUNC;
+
+  log_fd = open (log_path, oflag, mode);
+  if (log_fd < 0)
     {
       xnd_perror ("open");
       return;
     }
 
-  log_fd = dup2 (fd, XND_TRACE_FD);
-  close (fd);
-  if (log_fd < 0)
-    {
-      xnd_perror ("dup2");
-      return;
-    }
-
-  snprintf (pid_str, sizeof (pid_str), "%d", log_pid);
-  len = strlen ("| Start of log entry (pid: ) |") + strlen (pid_str);
-
-#define SET_LINE()                      \
-  do                                    \
-    {                                   \
-      dprintf (log_fd, "+");            \
-      for (int i = 1; i < len - 1; i++) \
-        dprintf (log_fd, "-");          \
-      dprintf (log_fd, "+\n");          \
-    }                                   \
-  while (0)
-
-  SET_LINE ();
-  dprintf (log_fd, "| Start of log entry (pid: %s) |\n", pid_str);
-  SET_LINE ();
-#undef SET_LINE
+  /* track the log file so it is reopened on restart */
+  fd_table_open_priv (log_fd, log_path, oflag, mode);
+  log_owner = true;
 }
 
 void
 xnd_log_cleanup (void)
 {
-  char pid_str[11];
-  size_t len;
-
-  if (log_level < XND_TRACING || log_fd < 0)
+  if (log_fd == -1)
     return;
 
-  snprintf (pid_str, sizeof (pid_str), "%d", log_pid);
-  len = strlen ("|  End of log entry (pid: )  |") + strlen (pid_str);
+  if (close (log_fd) == 0)
+    fd_table_close_priv (log_fd);
+  log_fd = -1;
 
-#define SET_LINE()                      \
-  do                                    \
-    {                                   \
-      dprintf (log_fd, "+");            \
-      for (int i = 1; i < len - 1; i++) \
-        dprintf (log_fd, "-");          \
-      dprintf (log_fd, "+\n");          \
-    }                                   \
-  while (0)
-
-  SET_LINE ();
-  dprintf (log_fd, "|  End of log entry (pid: %s)  |\n", pid_str);
-  SET_LINE ();
-#undef SET_LINE
-
-  close (log_fd);
+  if (log_owner)
+    (void) unlink (log_path);
 }
 
 void
-xnd_log_shared_cache_info (void)
+xnd_log_atfork_child (void)
 {
-  const void *start, *end;
-  size_t size;
-  char *dyld_env_value;
-  const char dyld_env_key[] = "DYLD_SHARED_REGION";
-
-  dyld_env_value = getenv (dyld_env_key);
-  start = _dyld_get_shared_cache_range (&size);
-  end = (const void *) ((uintptr_t) start + size);
-
-  xnd_trace ("dyld shared cache info:\n"
-             "        environment: %s=%s\n"
-             " shared cache range: %p-%p %zu\n",
-             dyld_env_key, dyld_env_value, start, end, size);
+  log_owner = false;
 }
 
 void
-xnd_log_ckpt_thread_info (struct thread_info *ckpt_thread)
+xnd_log_printf (const char *fmt, ...)
 {
-  uintptr_t tls, self;
-  mach_port_t kport;
-  const uint kport_slot = __TSD_MACH_THREAD_SELF;
+  char buf[512];
+  size_t len;
+  int ret;
+  va_list ap;
 
-  self = (uintptr_t) ckpt_thread->ti_self;
-  tls = pthread_tsd_base ((pthread_t) self);
-  kport = (mach_port_t) (uintptr_t) ((void **) tls)[kport_slot];
+  if (log_fd == -1)
+    return;
 
-  xnd_trace ("checkpoint thread info:\n"
-             "     pthread_self(): 0x%016lx\n"
-             "        tpidrro_el0: 0x%016lx (tsd base)\n"
-             " mach_thread_self(): %u\n",
-             self, tls, kport);
-}
+  /* prefix with the virtual pid (stable across checkpoint-restart)
+     since processes share the log file after fork, and write the
+     line in a single write(2) so lines do not interleave */
+  len = (size_t) xnd_snprintf (buf, sizeof (buf), "[%u] ", log_pid ());
+  va_start (ap, fmt);
+  ret = xnd_vsnprintf (buf + len, sizeof (buf) - len, fmt, ap);
+  va_end (ap);
 
-void
-xnd_log_main_thread_info (void)
-{
-  uintptr_t tls, thread_self, sig, munge;
-
-  asm volatile ("mrs %0, tpidrro_el0" : "=r"(tls)::"memory");
-  thread_self = *tsd_slot_access (uintptr_t, __TSD_THREAD_SELF);
-  sig = *(long *) thread_self;
-  munge = *tsd_slot_access (uintptr_t, __TSD_PTR_MUNGE);
-
-  xnd_trace ("main thread info:\n"
-             "      tpidrro_el0: 0x%016lx (tsd base)\n"
-             "   pthread_self(): 0x%016lx\n"
-             " thread signature: 0x%016lx\n"
-             "      munge token: 0x%016lx\n"
-             "      sig ^ munge: 0x%016lx\n",
-             tls, thread_self, sig, munge, sig ^ munge);
-}
-
-void
-xnd_log_mach_port_info (void)
-{
-  extern mach_port_t mach_task_self_;
-  extern mach_port_t thread_self_trap (void);
-  extern mach_port_t task_self_trap (void);
-  extern mach_port_t host_self_trap (void);
-
-  xnd_trace ("mach port info:\n"
-             " mach_task_self(): %u\n"
-             " task_self_trap(): %u\n"
-             " mach_task_self_: %u\n"
-             "\n"
-             " mach_host_self(): %u\n"
-             " host_self_trap(): %u\n"
-             "\n"
-             " mach_thread_self(): %u\n"
-             " thread_self_trap(): %u\n",
-             mach_task_self (), task_self_trap (), mach_task_self_,
-             mach_host_self (), host_self_trap (), mach_thread_self (),
-             thread_self_trap ());
+  len += min ((size_t) ret, sizeof (buf) - len - 1);
+  (void) writeall (log_fd, buf, len);
 }

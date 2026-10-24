@@ -239,11 +239,6 @@ coord_cleanup (void)
 __noreturn void
 coord_exit (int status)
 {
-  if (status == COORD_EXIT_SUCCESS)
-    xnd_trace ("Coordinator exiting: COORD_EXIT_SUCCESS\n");
-  else if (status == COORD_EXIT_FAILURE)
-    xnd_trace ("Coordinator exiting: COORD_EXIT_FAILURE\n");
-
   coord_cleanup ();
   exit (status);
 
@@ -268,7 +263,6 @@ coord_handler (int sig)
 {
   struct proc *p;
 
-  xnd_trace ("Coordinator sent signal: %d\n", sig);
   proc_foreach (p, proc_list)
     kill (p->real_pid, sig);
 
@@ -291,10 +285,8 @@ void
 coord_handle_command (int fd, struct xnd_msg *msg)
 {
   struct xnd_msg resp;
-  const char *cmdstr = xnd_cmd_string (msg->cmd);
 
   xnd_assert (msg->hdr == XND_COMMAND);
-  xnd_trace ("received command: %s\n", cmdstr);
 
   switch (msg->cmd)
     {
@@ -317,7 +309,7 @@ coord_handle_command (int fd, struct xnd_msg *msg)
       coord_broadcast_msg (msg);
       break;
     default:
-      xnd_warn ("invalid command: %s\n", cmdstr);
+      xnd_warn ("invalid command: %s\n", xnd_cmd_string (msg->cmd));
       resp.hdr = XND_COORD_ACK;
       resp.ret = XND_FAILURE;
       goto out;
@@ -673,7 +665,6 @@ coord_connect_with_process_on_launch (int fd, struct xnd_msg *msg)
          */
   if (pid_table_real_pid_exists (msg->real_pid))
     {
-      xnd_trace ("Process %d re-connecting\n", msg->real_pid);
       p = proc_list_find_by_real_pid (proc_list, msg->real_pid);
       close (p->fd);
       p->fd = fd;
@@ -773,11 +764,9 @@ coord_send_handshake (struct proc *p)
 
   if (coord_send_msg (p->fd, &msg) != 0)
     {
-      xnd_trace ("Process %d failed to connect\n", p->real_pid);
+      xnd_error ("process %d failed to connect\n", p->real_pid);
       coord_exit (COORD_EXIT_FAILURE);
     }
-
-  xnd_trace ("Process %d connected to coordinator\n", p->real_pid);
 }
 
 void

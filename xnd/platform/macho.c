@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 static inline bool fat_is_arm64e (void *);
 static inline bool macho_is_arm64e (void *);
@@ -215,10 +216,7 @@ binary_arm64e_to_arm64 (char *path, char *tmp)
 
   /* Write temporary arm64 executable to disk */
   if (writeall (dstfd, mh, nbyte) == nbyte)
-    {
-      ret = ARM64E_TO_ARM64_SUCCESS;
-      xnd_trace ("Wrote temporary arm64 executable: %s\n", tmp);
-    }
+    ret = ARM64E_TO_ARM64_SUCCESS;
 
 out:
   if (srcfd != -1)

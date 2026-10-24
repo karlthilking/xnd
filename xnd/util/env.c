@@ -1,9 +1,11 @@
 /* env.c */
-#include "xnd/xnd.h"
-#include "env.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+
+#include "xnd/xnd.h"
+#include "env.h"
 
 static __always_inline void
 env_set_pid (const char *var, pid_t pid)
@@ -63,19 +65,17 @@ env_get_pid_info (pid_t *virt_pid, pid_t *real_pid, pid_t *virt_ppid,
 void
 env_set_program_name (char *value)
 {
-  xnd_assert (setenv (XND_PROGRAM_ENV, value, 1) == 0);
-  xnd_trace ("%s=%s\n", XND_PROGRAM_ENV, value);
+  char path[PATH_MAX], *name = NULL;
+
+  realpath (value, path);
+  name = (strrchr (path, '/') ? strrchr (path, '/') + 1 : path);
+  setenv (XND_PROGRAM_ENV, name, 1);
 }
 
 char *
 env_get_program_name (void)
 {
-  char *value;
-
-  if ((value = getenv (XND_PROGRAM_ENV)) != NULL)
-    xnd_trace ("%s=%s\n", XND_PROGRAM_ENV, value);
-
-  return value;
+  return getenv (XND_PROGRAM_ENV);
 }
 
 void
@@ -138,7 +138,6 @@ env_set_ckpt_signal (char *sigstr)
 
   snprintf (buf, sizeof (buf), "%d", sig);
   setenv (XND_CKPT_SIGNAL_ENV, buf, 1);
-  xnd_trace ("%s=%d\n", XND_CKPT_SIGNAL_ENV, sig);
 }
 
 int
@@ -169,6 +168,7 @@ env_unset_dyld_shared_region (void)
 {
   xnd_assert (unsetenv ("DYLD_SHARED_REGION") == 0);
 }
+
 
 char *
 env_get_dyld_shared_region (void)

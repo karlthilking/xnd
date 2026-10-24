@@ -119,7 +119,6 @@ const char *const thread_state_string (enum thread_state) __cold;
 static inline bool
 unsafe_enter_internal (struct thread_info *t)
 {
-  bool ok, ret = true;
   enum thread_state state;
   uint64_t epoch = READ_ONCE (xnd_epoch);
 
@@ -137,7 +136,6 @@ unsafe_enter_internal (struct thread_info *t)
 static inline void
 unsafe_exit_internal (struct thread_info *t)
 {
-  bool ok;
   enum thread_state state;
 
   state = xnd_atomic_load_relaxed (&t->ti_state);

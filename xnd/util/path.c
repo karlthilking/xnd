@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 int
 xnd_path_find (const char *file, char *out, size_t outlen)

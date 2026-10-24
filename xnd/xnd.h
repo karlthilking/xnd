@@ -7,12 +7,14 @@
 
 #define XND_DEFAULT_CKPT_SIGNAL SIGUSR2
 
-#include "xnd/util/log.h"
 #include "common/types.h"
 #include "common/compiler.h"
 #include "common/bits.h"
 #include "common/xalloc.h"
 #include "common/xthread.h"
 #include "common/atomic.h"
+
+/* brings in xnd_error, xnd_warn, xnd_panic, etc ... */
+#include "util/error.h"
 
 #endif /* XND_H */

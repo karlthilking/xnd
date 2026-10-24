@@ -5,7 +5,6 @@
 #include "xnd/vm_region.h"
 #include "xnd/shared_cache.h"
 #include "xnd/util/io.h"
-#include "xnd/util/log.h"
 #include "xnd/pid/pid.h"
 #include "xnd/syscall.h"
 #include "xnd/platform/ucontext/ucontext.h"
@@ -124,6 +123,15 @@ main (int argc, char *argv[])
   mach_vm_address_t addr;
   mach_vm_size_t size;
   const char *ckptfile = NULL;
+  const struct xnd_error_ops ops =
+    {
+      .vdprintf = xnd_vdprintf,
+      .vsnprintf = xnd_vsnprintf,
+    };
+
+  /* restored memory replaces libc state, so only use stack-based
+     routines to report errors */
+  xnd_error_set_io (&ops);
 
   for (char **p = argv + 1; *p != NULL; p++)
     {

@@ -2,6 +2,7 @@
 #include "xnd/xnd.h"
 #include "xnd/xnd_lib.h"
 #include "xnd/fd_table.h"
+#include "xnd/util/log.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -9,11 +10,14 @@
 #include <string.h>
 #include <unistd.h>
 
-static struct fd_table fd_table = { .table = { 0 },
-                                    .lock = PTHREAD_MUTEX_INITIALIZER,
-                                    .init = false };
+static struct fd_table fd_table =
+  {
+    .table = {0},
+    .lock = PTHREAD_MUTEX_INITIALIZER,
+    .init = false,
+  };
 
-/**
+/*
  * file_save:
  *  Save open file current offset and flags to recreate open file
  *  state during restore.
@@ -279,32 +283,37 @@ bad:
 }
 #pragma clang diagnostic pop
 
+/* fd_table_open_priv
+   private callback for other libxnd subsystems to notify the fd_table
+   of an opened file that didn't go through an interposed function */
 void
-fd_table_open (int fd, const char *path, int flags, mode_t mode)
+fd_table_open_priv (int fd, const char *path, int oflag, mode_t mode)
 {
+  struct fd_source *src;
   struct fd_source **table = fd_table.table;
 
-  if (!fd_table.init)
-    {
-      xnd_trace ("Ignoring opened fd: %d\n", fd);
-      return;
-    }
+  /* fd_table must be initialized */
+  xnd_assert (fd_table.init);
+  xpthread_mutex_lock (&fd_table.lock);
 
-  pthread_mutex_lock (&fd_table.lock);
-  table[fd] = malloc (sizeof (struct fd_source));
-  if (table[fd] == NULL)
-    {
-      xnd_perror ("malloc");
-      xnd_abort ();
-    }
+  src = xmalloc (sizeof (*src));
+  table[fd] = src;
 
-  table[fd]->type = FD_FILE;
-  table[fd]->ref = 1;
-  table[fd]->mode = mode;
-  table[fd]->flags = flags;
-  table[fd]->state = FD_STATE_NULL;
-  strncpy (table[fd]->path, path, strlen (path) + 1);
-  pthread_mutex_unlock (&fd_table.lock);
+  src->type = FD_FILE;
+  src->ref = 1;
+  src->flags = oflag;
+  src->mode = mode;
+
+  src->state = FD_STATE_NULL;
+  strlcpy (src->path, path, sizeof (src->path));
+  xpthread_mutex_unlock (&fd_table.lock);
+}
+
+void
+fd_table_open (int fd, const char *path, int oflag, mode_t mode)
+{
+  if (fd_table.init)
+    fd_table_open_priv (fd, path, oflag, mode);
 }
 
 void
@@ -315,7 +324,7 @@ fd_table_opendir (DIR *dirp, const char *path)
 
   if (!fd_table.init)
     {
-      xnd_trace ("Ignored opened dir\n");
+      xnd_log_printf ("Ignored opened dir\n");
       return;
     }
 
@@ -348,7 +357,7 @@ fd_table_dup (int oldfd, int newfd)
 
   if (!fd_table.init)
     {
-      xnd_trace ("Ignoring dup fd (%d, %d)\n", oldfd, newfd);
+      xnd_log_printf ("Ignoring dup fd (%d, %d)\n", oldfd, newfd);
       return;
     }
 
@@ -366,28 +375,30 @@ fd_table_dup (int oldfd, int newfd)
 }
 
 void
+fd_table_close_priv (int fd)
+{
+  struct fd_source *src;
+  struct fd_source **table = fd_table.table;
+  
+  xnd_assert (fd_table.init);
+  xpthread_mutex_lock (&fd_table.lock);
+
+  src = table[fd];
+  if (src == NULL || src->type == FD_NULL)
+    xnd_warn ("closed file not tracked (fd: %d)\n", fd);
+  else
+    {
+      if (--src->ref == 0)
+        free (src);
+      table[fd] = NULL;
+    }
+
+  xpthread_mutex_unlock (&fd_table.lock);
+}
+
+void
 fd_table_close (int fd)
 {
-  struct fd_source **table = fd_table.table;
-
-  if (!fd_table.init)
-    {
-      xnd_trace ("Ignoring closed fd: %d\n", fd);
-      return;
-    }
-
-  pthread_mutex_lock (&fd_table.lock);
-  if (table[fd] == NULL || table[fd]->type == FD_NULL)
-    {
-      xnd_warn ("Closed fd untracked: %d\n", fd);
-      pthread_mutex_unlock (&fd_table.lock);
-      return;
-    }
-
-  table[fd]->ref--;
-  if (table[fd]->ref == 0)
-    free (table[fd]);
-
-  table[fd] = NULL;
-  pthread_mutex_unlock (&fd_table.lock);
+  if (fd_table.init)
+    fd_table_close_priv (fd);
 }

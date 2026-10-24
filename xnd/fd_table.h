@@ -49,10 +49,14 @@ void fd_table_destroy (void);
 void fd_table_save (void);
 void fd_table_restore (void);
 
-void fd_table_open (int fd, const char *path, int flags, mode_t mode);
-void fd_table_dup (int oldfd, int newfd);
-void fd_table_close (int fd);
+void fd_table_open_priv (int, const char *, int, mode_t) __private_extern;
+void fd_table_open (int, const char *, int, mode_t);
 
-void fd_table_opendir (DIR *dirp, const char *path);
+void fd_table_dup (int, int);
+
+void fd_table_close_priv (int) __private_extern;
+void fd_table_close (int);
+
+void fd_table_opendir (DIR *, const char *);
 
 #endif /* XND_FD_TABLE_H */

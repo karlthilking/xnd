@@ -1,6 +1,7 @@
 /* xnd_macho_parse.c */
 #include "xnd/xnd.h"
 #include "xnd/util/path.h"
+#include "xnd/util/io.h"
 #include "common/leb128.h"
 #include "macho.h"
 #include <errno.h>
@@ -124,7 +125,6 @@ main (int argc, char *argv[])
   u32 magic;
   struct macho_all_info info;
 
-  xnd_log_setup ();
   if (argc < 2)
     {
       usage ();

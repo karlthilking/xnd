@@ -4,6 +4,7 @@
 
 #include "xnd/xnd.h"
 #include <sys/types.h>
+#include <uuid/uuid.h>
 
 #define XND_COORDINATOR        1
 #define XND_COORD_PATH         "xnd_coordinator_v0"

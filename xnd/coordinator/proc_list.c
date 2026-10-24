@@ -3,6 +3,7 @@
 #include "proc_list.h"
 #include <stdlib.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/types.h>
 
 struct proc_list *

@@ -1,7 +1,6 @@
 /* pac.c */
 #include "xnd/xnd.h"
 #include "xnd/pac.h"
-#include "xnd/util/log.h"
 
 #include <ucontext.h>
 #include <stdlib.h>

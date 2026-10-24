@@ -37,8 +37,6 @@ static void restore_parent_cleanup(void)
         delete info;
         for (auto t : targets)
                 delete t;
-
-        xnd_log_cleanup();
 }
 
 static void restore_parent_handler(int sig)
@@ -78,7 +76,6 @@ static int restore_parent_setup(void)
                 return -1;
         }
 
-        xnd_log_mach_port_info();
         env_set_dyld_shared_region_private();
         return 0;
 }
@@ -92,7 +89,6 @@ static int restore_parent_setup(void)
 
 	argv[2] = (restart_pause ? "--pause" : nullptr);
 	argv[3] = nullptr;
-        xnd_log_mach_port_info();
 
 	posix_spawnattr_init(&attr);
 	flags = POSIX_SPAWN_SETEXEC | POSIX_SPAWN_DISABLE_ASLR;
@@ -256,7 +252,6 @@ int main(int argc, char *argv[])
 	pid_t ret, child;
 	const char *ckptdir = nullptr;
 
-        xnd_log_setup();
 	for (char **p = argv + 1; *p != NULL; p++) {
 		if (strncmp(*p, "--pause", sizeof("--pause")) == 0) {
 			restart_pause = true;

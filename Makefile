@@ -36,6 +36,7 @@ LIBXND_OBJS := \
 	$(BUILD)/tls.o \
         $(BUILD)/ckptfile.o \
         $(BUILD)/log.o \
+        $(BUILD)/error.o \
         $(BUILD)/path.o \
         $(BUILD)/debug.o \
         $(BUILD)/signal.o \
@@ -69,7 +70,7 @@ XND_RESTART_INTERNAL_SRCS := \
         xnd/readckpt.c \
         xnd/shared_cache.c \
 	xnd/util/io.c \
-        xnd/util/log.c \
+        xnd/util/error.c \
         xnd/util/path.c \
         xnd/platform/ucontext/setcontext.c \
         xnd/platform/ucontext/_setcontext.s
@@ -82,14 +83,14 @@ XND_LAUNCH_OBJS := \
         $(BUILD)/path.o \
         $(BUILD)/shared_cache.o \
         $(BUILD)/io.o \
-        $(BUILD)/log.o \
+        $(BUILD)/error.o \
         $(BUILD)/env.o \
         $(BUILD)/xnd_coord_api.o \
 	$(BUILD)/xnd_coord_common.o
 
 XND_COMMAND_OBJS := \
 	$(BUILD)/xnd_command.o \
-	$(BUILD)/log.o \
+	$(BUILD)/error.o \
 	$(BUILD)/path.o \
 	$(BUILD)/io.o \
 	$(BUILD)/exe.o \
@@ -100,7 +101,7 @@ XND_COORD_OBJS := \
         $(BUILD)/shared_cache.o \
         $(BUILD)/ckptfile.o \
         $(BUILD)/io.o \
-        $(BUILD)/log.o \
+        $(BUILD)/error.o \
         $(BUILD)/fd.o \
         $(BUILD)/env.o \
         $(BUILD)/path.o \
@@ -118,21 +119,21 @@ XND_RESTART_OBJS := \
         $(BUILD)/xnd_coord_api.o \
 	$(BUILD)/xnd_coord_common.o \
         $(BUILD)/shared_cache.o \
-        $(BUILD)/log.o \
+        $(BUILD)/error.o \
         $(BUILD)/ckptfile.o \
         $(BUILD)/compress.o
 
 XND_PRINT_OBJS := \
         $(BUILD)/xnd_print.o \
         $(BUILD)/compress.o \
-        $(BUILD)/log.o \
+        $(BUILD)/error.o \
         $(BUILD)/path.o \
         $(BUILD)/io.o
 
 XND_MACHO_PARSE_OBJS := \
 	$(BUILD)/xnd_macho_parse.o \
 	$(BUILD)/io.o \
-	$(BUILD)/log.o \
+	$(BUILD)/error.o \
 	$(BUILD)/path.o \
 	$(BUILD)/macho.o
 
