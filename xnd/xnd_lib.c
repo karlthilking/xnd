@@ -287,6 +287,10 @@ xnd_setup (void)
       if (opt != NULL && strcmp (opt, "init") == 0)
         unlink (tmp);
     }
+
+#if DEBUG || DEVELOPMENT
+  dump_debug_info ();
+#endif
       
   set_xnd_state (XND_RUNNING);
 }

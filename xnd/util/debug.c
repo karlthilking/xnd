@@ -46,14 +46,22 @@ image_find (const char *target, struct image_info *info)
 void
 dump_debug_info (void)
 {
-  struct image_info info;
-  const char fmt[] = "%s: index=%u, name=%s, slide=0x%lx\n";
+  const char *program = env_get_program_name ();
+  struct image_info libxnd, main;
 
-  xnd_log_printf ("debug info (%d):\n", xnd_sys_getpid ());
+  image_find ("libxnd.dylib", &libxnd);
+  image_find (program, &main);
 
-  if (image_find ("libxnd.dylib", &info))
-    xnd_log_printf (fmt, "libxnd", info.index, info.name, info.slide);
-
-  if (image_find (env_get_program_name (), &info))
-    xnd_log_printf (fmt, "main image", info.index, info.name, info.slide);
+  xnd_log_printf ("Debug info (%d):\n"
+                  "libxnd.dylib:\n"
+                  " path = %s\n"
+                  " index = %u\n"
+                  " slide = 0x%lx\n"
+                  "%s:\n"
+                  " path = %s\n"
+                  " index = %u\n"
+                  " slide = 0x%lx\n",
+                  xnd_sys_getpid (),
+                  libxnd.name, libxnd.index, libxnd.slide,
+                  program, main.name, main.index, main.slide);
 }

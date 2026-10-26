@@ -226,7 +226,7 @@ test:
 clean:
 	rm -rf *.dSYM *-checkpoints
 	rm -f $(ALL) *.dylib *.o *.ckpt *.dat *.xnd
-	rm -f xnd_coordinator_v0
+	rm -f xnd_coordinator_v0 /tmp/xnd/*.log
 	rm -f $(BUILD)/segpatch $(BUILD)/xrcc
 	rm -f $(BUILD)/xnd-restart.defs
 
