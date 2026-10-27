@@ -53,8 +53,10 @@ xnd_ulock_verify (void)
   args.callback = ^(void *lock) {
     struct xnd_ulock *ul = (struct xnd_ulock *) lock;
     xnd_ulock_lock (ul);
+    T_ASSERT (xnd_ulock_owned (ul));
     counter++;
     xnd_ulock_unlock (ul);
+    T_ASSERT (xnd_ulock_not_owned (ul));
   };
 
   for (int n = 2; n <= max_threads; n <<= 1)
@@ -75,18 +77,26 @@ xnd_ulock_verify (void)
       {
         node = xmalloc (sizeof (*node));
         xnd_ulock_lock (ul);
+        T_ASSERT (xnd_ulock_owned (ul));
+
         node->next = head;
         head = node;
         insertions++;
+
         xnd_ulock_unlock (ul);
+        T_ASSERT (xnd_ulock_not_owned (ul));
       }
     for (int i = 0; i < 5; i++)
       {
         xnd_ulock_lock (ul);
+        T_ASSERT (xnd_ulock_owned (ul));
+
         node = head;
         head = head->next;
         deletions++;
+
         xnd_ulock_unlock (ul);
+        T_ASSERT (xnd_ulock_not_owned (ul));
         free (node);
       }
   };

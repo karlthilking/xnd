@@ -59,8 +59,12 @@ xnd_ulock_unlock (struct xnd_ulock *ul)
 
 #define xnd_ulock_owned(ul) \
   (xnd_ulock_owner (ul) == xnd_ulock_self ())
+#define xnd_ulock_not_owned(ul) \
+  (xnd_ulock_owner (ul) != xnd_ulock_self ())
 
 #define xnd_ulock_assert_owner(ul) \
   xnd_assert (xnd_ulock_owned (ul))
+#define xnd_ulock_assert_not_owner(ul) \
+  xnd_assert (xnd_ulock_not_owned (ul))
 
 #endif /* XND_ULOCK_H */
