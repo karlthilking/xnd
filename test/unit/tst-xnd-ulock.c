@@ -14,6 +14,7 @@
 
 static bool run_tests = true;
 static bool run_benchmarks = false;
+static const int max_threads = 64;
 
 struct node
 {
@@ -56,11 +57,10 @@ xnd_ulock_verify (void)
     xnd_ulock_unlock (ul);
   };
 
-  for (int n = 2; n <= 32; n <<= 1)
+  for (int n = 2; n <= max_threads; n <<= 1)
     {
       spawn_threads (n, NULL, thread_doit, (void *) &args);
-      if ((n * args.steps) != counter)
-        return 1;
+      T_CHECK ((n * args.steps) == counter);
       counter = 0;
     }
 
@@ -91,12 +91,12 @@ xnd_ulock_verify (void)
       }
   };
 
-  for (int n = 2; n <= 32; n <<= 1)
+  for (int n = 2; n <= max_threads; n <<= 1)
     {
       spawn_threads (n, NULL, thread_doit, (void *) &args);
-      if ((head != NULL) || (insertions != (5 * args.steps * n))
-          || (insertions != deletions))
-        return 1;
+      T_CHECK (head == NULL);
+      T_CHECK (insertions == (5 * args.steps * n));
+      T_CHECK (insertions == deletions);
       insertions = 0, deletions = 0;
     }
 
@@ -171,7 +171,7 @@ os_unfair_lock_bench (int nthrds, uint64_t steps, void (^work) (void))
 static int
 do_test (void)
 {
-  int ret;
+  int ret = 0;
   struct subtest test = SUBTEST_DECL (xnd_ulock_verify);
   void (^run_bench) (uint64_t, void (^) (void)) = NULL;
 
@@ -182,10 +182,15 @@ do_test (void)
 
   run_bench = ^(uint64_t steps, void (^work) (void)) {
       uint32_t elapsed;
-      uint32_t xnd_times[5], pthread_times[5], os_times[5];
+      uint32_t *xnd_times, *pthread_times, *os_times;
       float xnd_avg = 0.0f, pthread_avg = 0.0f, os_avg = 0.0f;
+      const int waves = __builtin_popcount (max_threads - 1);
 
-      for (int n = 2; n <= 32; n <<= 1)
+      xnd_times = xmalloc (waves * sizeof (uint32_t));
+      pthread_times = xmalloc (waves * sizeof (uint32_t));
+      os_times = xmalloc (waves * sizeof (uint32_t));
+
+      for (int n = 2; n <= max_threads; n <<= 1)
         {
           elapsed = xnd_ulock_bench (n, steps / n, work);
           printf ("xnd_ulock: %u ms (%d threads)\n", elapsed, n);
@@ -202,12 +207,16 @@ do_test (void)
           putchar ('\n');
         }
 
-      for (int i = 0; i < 5; i++)
+      for (int i = 0; i < waves; i++)
         {
           xnd_avg += (float) *(xnd_times + i);
           pthread_avg += (float) *(pthread_times + i);
           os_avg += (float) *(os_times + i);
         }
+
+      free (xnd_times);
+      free (pthread_times);
+      free (os_times);
 
       xnd_avg /= 5, pthread_avg /= 5, os_avg /= 5;
       printf ("xnd_ulock average: %f ms\n", xnd_avg);
@@ -233,7 +242,7 @@ do_test (void)
         f += *(x + 2) * *(y + 2);
       };
 
-    puts ("benchmarks (short critical section):");
+    puts ("\n******* BENCHMARKS (SHORT CRITICAL SECTION) *******\n");
     run_bench (steps, work);
 
     free (x);
@@ -265,7 +274,7 @@ do_test (void)
           }
       };
 
-    puts ("benchmarks (medium critical section):");
+    puts ("\n******* BENCHMARKS (MEDIUM CRITICAL SECTION) *******\n");
     run_bench (steps, work);
 
     free (key);
@@ -302,7 +311,7 @@ do_test (void)
         close (fd);
       };
 
-    puts ("benchmarks (long critical section):");
+    puts ("\n******* BENCHMARKS (LONG CRITICAL SECTION) *******\n");
     run_bench (steps, work);
   }
 
@@ -312,27 +321,67 @@ do_test (void)
 static void
 prepare_test (int argc, char *argv[])
 {
-  char *opt = NULL;
+  char *opt, *arg;
+  const char *file = argv[0], *help =
+    "Usage: %s [options]\n"
+    "Options:\n"
+    " --test=[0|1]\n"
+    "    0: Don't run tests\n"
+    "    1: Run test to verify mutual exclusion\n"
+    "    (Default: 1)\n"
+    " --bench=[0|1]\n"
+    "    0: Don't run benchmarks\n"
+    "    1: Run benchmarks to profile lock performance\n"
+    "    (Default: 0)\n"
+    " --help\n"
+    "    Print information on usage and options\n";
 
-#define shift *(argc--, argv++)
-  shift;
+#define usage_and_exit(exit_status, fmt, ...)    \
+  ((void)                                        \
+   ({                                            \
+     if ((fmt) != NULL)                          \
+       dprintf (2, fmt, ##__VA_ARGS__);          \
+     dprintf (2, help, file);                    \
+     exit (exit_status);                         \
+   }))
+
+#define shift() *(argc--, argv++)
+
+  shift ();
   while (argc > 0)
     {
-      if (strncmp (*argv, "--test=", const_strlen ("--test")) == 0)
+      opt = shift ();
+      if (strncmp (opt, "--test", 6) == 0)
         {
-          opt = shift;
-          if (strsep (&opt, "="), opt != NULL)
-            run_tests = (atoi (opt) != 0);
+          arg = strsep (&opt, "=");
+          if (opt != NULL && opt[0] != '\0')
+            {
+              if (strcmp (opt, "0") && strcmp (opt, "1"))
+                usage_and_exit (1, "Invalid value: %s=%s\n", arg, opt);
+              run_tests = (atoi (opt) != 0);
+            }
+          else
+            usage_and_exit (1, "Missing argument: %s=?\n", arg);
         }
-      else if (strncmp (*argv, "--bench=", const_strlen ("--bench")) == 0)
+      else if (strncmp (opt, "--bench", 7) == 0)
         {
-          opt = shift;
-          if (strsep (&opt, "="), opt != NULL)
-            run_benchmarks = (atoi (opt) != 0);
+          arg = strsep (&opt, "=");
+          if (opt != NULL && opt[0] != '\0')
+            {
+              if (strcmp (opt, "0") && strcmp (opt, "1"))
+                usage_and_exit (1, "Invalid value: %s=%s\n", arg, opt);
+              run_benchmarks = (atoi (opt) != 0);
+            }
+          else
+            usage_and_exit (1, "Missing argument: %s=?\n", arg);
         }
+      else if (strcmp (opt, "--help") == 0)
+        usage_and_exit (0, NULL);
       else
-        printf ("unrecognized option: %s\n", shift);
+        usage_and_exit (1, "Unrecognized argument: %s\n", opt);
     }
+#undef shift
+#undef usage_and_exit
 }
 
 #define PREPARE_FUNCTION prepare_test
