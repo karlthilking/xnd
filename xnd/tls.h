@@ -65,8 +65,9 @@ static inline uintptr_t
 self_tsd_base (void)
 {
   uintptr_t tsd;
-  asm volatile ("mrs %0, tpidrro_el0" : "=r"(tsd)::"memory");
-  return (tsd & ~7ull);
+
+  __asm ("mrs %0, tpidrro_el0" : "=r" (tsd));
+  return tsd;
 }
 
 static inline uintptr_t
