@@ -21,7 +21,10 @@ TST_IO_FLAGS = $(CFLAGS) -O0 $(ASAN) $(UBSAN)
 
 TST_ATOMIC_FLAGS = $(CFLAGS) -O2 $(TSAN)
 
-ALL = tst-path tst-xnd-ulock tst-io
+TST_THREAD_PORT_OBJS = tst-thread-port.o thread-port.o
+TST_THREAD_PORT_FLAGS = $(CFLAGS) -O2 $(ASAN) $(UBSAN)
+
+ALL = tst-path tst-xnd-ulock tst-atomic tst-io tst-thread-port
 
 DIRS = xnd xnd/util xnd/platform xnd/synch
 VPATH = $(addprefix $(XND_ROOT)/,$(DIRS))
@@ -48,6 +51,14 @@ tst-xnd-ulock: $(TST_XND_ULOCK_OBJS)
 
 tst-atomic: tst-atomic.c
 	$(CC) $(TST_ATOMIC_FLAGS) -o $@ $<
+
+thread-port.o: thread-port.c
+	$(CC) $(TST_THREAD_PORT_FLAGS) -c $< -o $@
+tst-thread-port.o: tst-thread-port.c
+	$(CC) $(TST_THREAD_PORT_FLAGS) -c $< -o $@
+tst-thread-port: $(TST_THREAD_PORT_OBJS)
+	$(CC) $(TST_THREAD_PORT_FLAGS) -o $@ $^
+	dsymutil $@
 
 clean:
 	rm -f $(ALL) *.o
