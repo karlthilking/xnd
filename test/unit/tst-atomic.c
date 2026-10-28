@@ -41,7 +41,12 @@ test_atomic_cmpxchg_spin (void)
   uint64_t expected;
   struct thread_args args;
 
+#if __has_feature (thread_sanitizer)
+  args.steps = 5000;
+#else
   args.steps = 100000;
+#endif
+
   args.arg = NULL;
   args.callback = ^(void *arg)
     {
@@ -52,7 +57,7 @@ test_atomic_cmpxchg_spin (void)
 
   for (int n = 2; n <= 16; n <<= 1)
     {
-      count = 0;
+      lock = 0, count = 0;
       expected = args.steps * n;
       spawn_threads (n, NULL, thread_doit, (void *) &args);
       if (count != expected)

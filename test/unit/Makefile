@@ -31,19 +31,25 @@ VPATH = $(addprefix $(XND_ROOT)/,$(DIRS))
 
 all: $(ALL)
 
-%path.o: %path.c
+path.o: path.c
+	$(CC) $(TST_PATH_FLAGS) -c $< -o $@
+tst-path.o: tst-path.c
 	$(CC) $(TST_PATH_FLAGS) -c $< -o $@
 tst-path: $(TST_PATH_OBJS)
 	$(CC) $(TST_PATH_FLAGS) -o $@ $^
 	dsymutil $@
 
-%io.o: %io.c
+io.o: io.c
+	$(CC) $(TST_IO_FLAGS) -c $< -o $@
+tst-io.o: tst-io.c
 	$(CC) $(TST_IO_FLAGS) -c $< -o $@
 tst-io: $(TST_IO_OBJS)
 	$(CC) $(TST_IO_FLAGS) -o $@ $^
 	dsymutil $@
 
-%ulock.o: %ulock.c
+xnd-ulock.o: xnd-ulock.c
+	$(CC) $(TST_XND_ULOCK_FLAGS) -c $< -o $@
+tst-xnd-ulock.o: tst-xnd-ulock.c
 	$(CC) $(TST_XND_ULOCK_FLAGS) -c $< -o $@
 tst-xnd-ulock: $(TST_XND_ULOCK_OBJS)
 	$(CC) $(TST_XND_ULOCK_FLAGS) -o $@ $^

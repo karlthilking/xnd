@@ -94,8 +94,6 @@ test_main (int argc, char **argv, struct test_config *config)
   if (config->prepare_function != NULL)
     config->prepare_function (argc, argv);
 
-  putchar ('\n');
-  printf ("%s starting test\n", config->test_name);
   test_start = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
 
   pid = fork ();
@@ -111,6 +109,10 @@ test_main (int argc, char **argv, struct test_config *config)
       else
         errx (1, "no test function defined");
     }
+
+  putchar ('\n');
+  printf ("%s starting test (pid: %d)\n", config->test_name, pid);
+  puts ("**************************************************\n");
 
   test_pid = pid;
   test_name = config->test_name;
@@ -140,6 +142,9 @@ test_main (int argc, char **argv, struct test_config *config)
 
   test_end = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
   elapsed = (test_end - test_start) / NSEC_PER_MSEC;
+
+  putchar ('\n');
+  puts ("**************************************************");
   printf ("%s elapsed time: %u ms\n", config->test_name, elapsed);
 
   if (WIFEXITED (status))
