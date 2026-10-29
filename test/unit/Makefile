@@ -10,20 +10,6 @@ override CFLAGS += \
 	-iquote $(XND_ROOT)/xnd \
 	-iquote $(XND_ROOT)/include
 
-TST_PATH_OBJS = tst-path.o path.o
-TST_PATH_FLAGS = $(CFLAGS) -O0 $(ASAN) $(UBSAN)
-
-TST_XND_ULOCK_OBJS = tst-xnd-ulock.o xnd-ulock.o
-TST_XND_ULOCK_FLAGS = $(CFLAGS) -O2
-
-TST_IO_OBJS = tst-io.o io.o
-TST_IO_FLAGS = $(CFLAGS) -O0 $(ASAN) $(UBSAN)
-
-TST_ATOMIC_FLAGS = $(CFLAGS) -O2 $(TSAN)
-
-TST_THREAD_PORT_OBJS = tst-thread-port.o thread-port.o
-TST_THREAD_PORT_FLAGS = $(CFLAGS) -O2 $(ASAN) $(UBSAN)
-
 ALL = tst-path tst-xnd-ulock tst-atomic tst-io tst-thread-port
 
 DIRS = xnd xnd/util xnd/platform xnd/synch
@@ -31,39 +17,44 @@ VPATH = $(addprefix $(XND_ROOT)/,$(DIRS))
 
 all: $(ALL)
 
-path.o: path.c
-	$(CC) $(TST_PATH_FLAGS) -c $< -o $@
-tst-path.o: tst-path.c
-	$(CC) $(TST_PATH_FLAGS) -c $< -o $@
-tst-path: $(TST_PATH_OBJS)
-	$(CC) $(TST_PATH_FLAGS) -o $@ $^
+tst-path-SRCS = tst-path.c path.c
+tst-path-OBJS = $(tst-path-SRCS:.c=.path.o)
+tst-path-FLAGS = $(CFLAGS) -O0 $(ASAN) $(UBSAN)
+%.path.o: %.c
+	$(CC) $(tst-path-FLAGS) -c $< -o $@
+tst-path: $(tst-path-OBJS)
+	$(CC) $(tst-path-FLAGS) -o $@ $^
 	dsymutil $@
 
-io.o: io.c
-	$(CC) $(TST_IO_FLAGS) -c $< -o $@
-tst-io.o: tst-io.c
-	$(CC) $(TST_IO_FLAGS) -c $< -o $@
-tst-io: $(TST_IO_OBJS)
-	$(CC) $(TST_IO_FLAGS) -o $@ $^
+tst-io-SRCS = tst-io.o io.o
+tst-io-OBJS = $(tst-io-SRCS:.c=.io.o)
+tst-io-FLAGS = $(CFLAGS) -O0 $(ASAN) $(UBSAN)
+%.io.o: %.c
+	$(CC) $(tst-io-FLAGS) -c $< -o $@
+tst-io: $(tst-io-OBJS)
+	$(CC) $(tst-io-FLAGS) -o $@ $^
 	dsymutil $@
 
-xnd-ulock.o: xnd-ulock.c
-	$(CC) $(TST_XND_ULOCK_FLAGS) -c $< -o $@
-tst-xnd-ulock.o: tst-xnd-ulock.c
-	$(CC) $(TST_XND_ULOCK_FLAGS) -c $< -o $@
-tst-xnd-ulock: $(TST_XND_ULOCK_OBJS)
-	$(CC) $(TST_XND_ULOCK_FLAGS) -o $@ $^
+tst-xnd-ulock-SRCS = xnd-ulock.c tst-xnd-ulock.c
+tst-xnd-ulock-OBJS = $(tst-xnd-ulock-SRCS:.c=.xnd-ulock.o)
+tst-xnd-ulock-FLAGS = $(CFLAGS) -O2
+%.xnd-ulock.o: %.c
+	$(CC) $(tst-xnd-ulock-FLAGS) -c $< -o $@
+tst-xnd-ulock: $(tst-xnd-ulock-OBJS)
+	$(CC) $(tst-xnd-ulock-FLAGS) -o $@ $^
 	dsymutil $@
 
+tst-atomic-FLAGS = $(CFLAGS) -O2 $(TSAN)
 tst-atomic: tst-atomic.c
-	$(CC) $(TST_ATOMIC_FLAGS) -o $@ $<
+	$(CC) $(tst-atomic-FLAGS) -o $@ $<
 
-thread-port.o: thread-port.c
-	$(CC) $(TST_THREAD_PORT_FLAGS) -c $< -o $@
-tst-thread-port.o: tst-thread-port.c
-	$(CC) $(TST_THREAD_PORT_FLAGS) -c $< -o $@
-tst-thread-port: $(TST_THREAD_PORT_OBJS)
-	$(CC) $(TST_THREAD_PORT_FLAGS) -o $@ $^
+tst-thread-port-SRCS = tst-thread-port.c thread-port.c
+tst-thread-port-OBJS = $(tst-thread-port-SRCS:.c=.thread-port.o)
+tst-thread-port-FLAGS = $(CFLAGS) -O2 $(ASAN) $(UBSAN)
+%.thread-port.o: %.c
+	$(CC) $(tst-thread-port-FLAGS) -c $< -o $@
+tst-thread-port: $(tst-thread-port-OBJS)
+	$(CC) $(tst-thread-port-FLAGS) -o $@ $^
 	dsymutil $@
 
 clean:
@@ -73,6 +64,5 @@ clean:
 .DEFAULT: all
 .PHONY: all clean
 .INTERMEDIATE: \
-	$(TST_PATH_OBJS) \
-	$(TST_XND_ULOCK_OBJS) \
-	$(TST_IO_OBJS)
+	$(tst-path-OBJS) $(tst-io-OBJS) $(tst-xnd-ulock-OBJS) \
+	$(tst-thread-port-OBJS)
