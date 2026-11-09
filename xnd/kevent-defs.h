@@ -2,6 +2,9 @@
 #ifndef XND_KEVENT_DEFS_H
 #define XND_KEVENT_DEFS_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 /* Additional filter types in event.h */
 #define EVFILT_UNUSED_11        (-11)   /* (-11) unused */
 #define EVFILT_SOCK             (-13)   /* Socket events */

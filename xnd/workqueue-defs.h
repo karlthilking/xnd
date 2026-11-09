@@ -2,9 +2,11 @@
 #ifndef XND_WORKQUEUE_DEFS_H
 #define XND_WORKQUEUE_DEFS_H
 
-#include "xnd/thread-priority-defs.h"
 #include <mach/port.h>
 #include <stdint.h>
+#include <stddef.h>
+
+#include "xnd/thread-priority-defs.h"
 
 /* Definitions of workqueue, kevent and workloop related constants and
    types not available in public headers.
@@ -108,5 +110,6 @@ struct kqueue_workloop_params
 extern int __workq_open (void);
 extern int __workq_kernreturn (int, void *, int, int);
 extern int __kqueue_workloop_ctl (uintptr_t, uint64_t, void *, size_t);
+extern int pthread_workqueue_setup (struct pthread_workqueue_config *, size_t);
 
 #endif /* XND_WORKQUEUE_DEFS_H */
