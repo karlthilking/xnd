@@ -3,27 +3,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "workqueue.h"
 #include "xworkqueue.h"
 #include "common/compiler.h"
 
-#define __xworkq_error(msg, errnum)                     \
-  do {                                                  \
-    char __buf[256];                                    \
-    (void) strerror_r (errnum, __buf, sizeof (__buf));  \
-    fprintf (stderr, msg ": %s\n", __buf);              \
+#define __xworkq(op, ...)                    \
+  do {                                       \
+    int __err = workq_##op (__VA_ARGS__);    \
+    if (__err != 0)                          \
+      {                                      \
+        workq_error (STRINGIFY (op), __err); \
+        abort ();                            \
+      }                                      \
   } while (0)
 
-#define __xworkq(op, ...)                       \
-  do {                                          \
-    int __err = workq_##op (__VA_ARGS__);       \
-    if (__err != 0)                             \
-      {                                         \
-        __xworkq_error (STRINGIFY (op), __err); \
-        exit (1);                               \
-      }                                         \
-  } while (0)
+static void
+workq_error (const char *msg, int errnum)
+{
+  char buf[256];
+
+  if (isatty (STDERR_FILENO))
+    {
+      strerror_r (errnum, buf, sizeof (buf));
+      dprintf (STDERR_FILENO, "%s: %s\n", msg, buf);
+    }
+}
 
 void
 xworkq_setup (struct pthread_workqueue_config *cfg)
@@ -70,3 +76,14 @@ xworkq_kevent_submit (const struct kevent_qos_s *events, int nevents)
   __xworkq (kevent_submit, events, nevents);
 }
 
+void
+xworkq_allow_kill (int enable)
+{
+  __xworkq (allow_kill, enable);
+}
+
+void
+xworkq_allow_sigmask (sigset_t mask)
+{
+  __xworkq (allow_sigmask, mask);
+}

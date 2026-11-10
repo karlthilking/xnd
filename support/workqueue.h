@@ -2,6 +2,7 @@
 #ifndef SUPPORT_WORKQ_H
 #define SUPPORT_WORKQ_H
 
+#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -22,6 +23,8 @@ extern int workq_setup_worker (void (*) (pthread_priority_t));
 extern int workq_reqthreads (int, pthread_priority_t, bool);
 extern int workq_set_event_mgr_pri (pthread_priority_t);
 extern int workq_kevent_submit (const struct kevent_qos_s *, int);
+extern int workq_allow_kill (int);
+extern int workq_allow_sigmask (sigset_t);
 
 __END_DECLS
 

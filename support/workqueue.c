@@ -48,7 +48,6 @@ workq_reqthreads (int nthreads, pthread_priority_t pp, bool cooperative)
 
   op = (cooperative ? WQOPS_QUEUE_REQTHREADS2 : WQOPS_QUEUE_REQTHREADS);
   ret = __workq_kernreturn (op, NULL, nthreads, (int) pp);
-
   return (ret < 0 ? errno : 0);
 }
 
@@ -59,7 +58,6 @@ workq_set_event_mgr_pri (pthread_priority_t pp)
   const int op = WQOPS_SET_EVENT_MANAGER_PRIORITY;
 
   ret = __workq_kernreturn (op, NULL, (int) pp, 0);
-
   return (ret < 0 ? errno : 0);
 }
 
@@ -70,6 +68,23 @@ workq_kevent_submit (const struct kevent_qos_s *events, int nevents)
   const unsigned int flags = KEVENT_FLAG_WORKQ;
 
   ret = kevent_qos (-1, events, nevents, NULL, 0, NULL, NULL, flags);
+  return (ret < 0 ? errno : 0);
+}
 
+int
+workq_allow_kill (int enable)
+{
+  int ret;
+  
+  ret = __bsdthread_ctl (BSDTHREAD_CTL_WORKQ_ALLOW_KILL, enable, 0, 0);
+  return (ret < 0 ? errno : 0);
+}
+
+int
+workq_allow_sigmask (sigset_t mask)
+{
+  int ret;
+  
+  ret = __bsdthread_ctl (BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK, mask, 0, 0);
   return (ret < 0 ? errno : 0);
 }
