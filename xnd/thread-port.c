@@ -5,11 +5,11 @@
 #include "xnd/xnd.h"
 #include "common/atomic.h"
 #include "common/compiler.h"
+#include "common/lowbias32.h"
 #include "common/xalloc.h"
 #include "common/xthread.h"
 #include "thread-port.h"
 
-static inline uint32_t lowbias32 (uint32_t);
 static inline uint32_t tport_tbl_index (mach_port_t);
 
 /* Translation table mapping userspace thread ports to the thread port
@@ -22,17 +22,6 @@ static struct tport_tbl tp_tbl =
     .tp_entries = NULL,
     .tp_size = 0,
   };
-
-static inline uint32_t
-lowbias32 (uint32_t x)
-{
-  x ^= x >> 16;
-  x *= 0x7feb352dU;
-  x ^= x >> 15;
-  x *= 0x846ca68bU;
-  x ^= x >> 16;
-  return x;
-}
 
 static inline uint32_t
 tport_tbl_index (mach_port_t uport)
