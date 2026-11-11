@@ -3,6 +3,7 @@
 #include <Block.h>
 #include <dispatch/dispatch.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,8 @@
 #include "common/xunistd.h"
 #include "support/xworkqueue.h"
 #include "thread-priority-defs.h"
+
+extern pthread_t pthread_main_thread_np (void);
 
 struct udata_args
 {
@@ -54,12 +57,22 @@ static void queue_push (struct block *);
 
 static void worker_thread (pthread_priority_t);
 static void request_worker (thread_qos_t);
+static void handle_timer_kevent (struct kevent_qos_s *);
+static uint16_t handle_user_kevent (const struct kevent_qos_s *);
 static void kevent_thread (void **, int *);
 
+static void register_timer_kevent (uint64_t);
 static void register_user_kevent (void);
 static void trigger_user_kevent (uint64_t);
 
+static void main_thread_signal (void);
+static void main_thread_wait (void);
+static void main_thread_siginit (void);
+static void progress (int, uint64_t);
+
 static struct block_queue *queue = NULL;
+static uint64_t kevent_timer_cnt = 0;
+static uint64_t kevent_user_cnt = 0;
 
 static float
 rand_float(float lo, float hi)
@@ -182,6 +195,21 @@ request_worker (thread_qos_t qos)
 }
 
 static void
+handle_timer_kevent (struct kevent_qos_s *kev)
+{
+  uint64_t timeout;
+
+  assert ((kev->flags & EV_ADD) != 0);
+  assert ((kev->flags & EV_ONESHOT) != 0);
+  
+  /* Timer delay chosen by the main thread is stored in the
+     kevent's udata field */
+  timeout = mach_absolute_time () + kev->udata;
+  kev->data = (int64_t) timeout;
+  kev->fflags = NOTE_ABSOLUTE | NOTE_MACHTIME;
+}
+
+static uint16_t
 handle_user_kevent (const struct kevent_qos_s *kev)
 {
   struct block *block;
@@ -195,13 +223,17 @@ handle_user_kevent (const struct kevent_qos_s *kev)
     }
 
   queue_prod_post (args->count);
+  return args->count;
 }
 
 static void
 kevent_thread (void **events, int *nevents)
 {
-  struct kevent_qos_s *kevents = *(struct kevent_qos_s **) events;
-  struct kevent_qos_s *in, *out = kevents;
+  uint16_t count = 0;
+  struct kevent_qos_s *in, *out, *kevents;
+
+  kevents = *(struct kevent_qos_s **) events;
+  out = kevents;
 
   for (in = kevents; in != kevents + *nevents; in++)
     {
@@ -210,21 +242,48 @@ kevent_thread (void **events, int *nevents)
           fprintf (stderr, "kevent error: %s\n", strerror (in->data));
           continue;
         }
-
       switch (in->filter)
         {
         case EVFILT_USER:
-          handle_user_kevent (in);
+          count = handle_user_kevent (in);
+          xnd_atomic_inc_relaxed (&kevent_user_cnt);
+          *out++ = *in;
           break;
         case EVFILT_TIMER:
-          fprintf (stderr, "Unexpected EVFILT_TIMER kevent\n");
+          handle_timer_kevent (in);
+          xnd_atomic_inc_relaxed (&kevent_timer_cnt);
+          *out++ = *in;
           break;
         default:
           break;
         }
     }
 
+  /* Wait for consumers to execute count blocks, then signal for the
+     main thread to continue. */
+  if (count != 0)
+    {
+      queue_prod_wait (count);
+      main_thread_signal ();
+    }
+
   *nevents = (int) (out - kevents);
+}
+
+static void
+register_timer_kevent (uint64_t delay)
+{
+  const struct kevent_qos_s kev =
+    {
+      .ident = 1,
+      .filter = EVFILT_TIMER,
+      .flags = EV_ADD | EV_ONESHOT,
+      .qos = _PTHREAD_PRIORITY_EVENT_MANAGER_FLAG,
+      .udata = delay,
+      .fflags = NOTE_ABSOLUTE | NOTE_MACHTIME,
+      .data = (int64_t) (mach_absolute_time () + delay),
+    };
+  xworkq_kevent_submit (&kev, 1);
 }
 
 static void
@@ -255,11 +314,66 @@ trigger_user_kevent (uint64_t udata)
   xworkq_kevent_submit (&kev, 1);
 }
 
+static void
+main_thread_signal (void)
+{
+  int err;
+  static pthread_t main_thread = NULL;
+
+  if (main_thread == NULL)
+    main_thread = pthread_main_thread_np ();
+
+  err = pthread_kill (main_thread, SIGUSR1);
+  if (err != 0)
+    {
+      fprintf (stderr, "pthread_kill: %s\n", strerror (err));
+      abort ();
+    }
+}
+
+static void
+main_thread_wait (void)
+{
+  int ret, sig;
+  const sigset_t mask = sigmask (SIGUSR1);
+
+  ret = sigwait (&mask, &sig);
+  if (ret != 0)
+    {
+      perror ("sigwait");
+      abort ();
+    }
+  assert (sig == SIGUSR1);
+}
+
+static void
+main_thread_siginit (void)
+{
+  const sigset_t mask = sigmask (SIGUSR1);
+
+  xpthread_sigmask (SIG_BLOCK, &mask, NULL);
+  if (signal (SIGUSR1, SIG_DFL) == SIG_ERR)
+    {
+      perror ("signal");
+      abort ();
+    }
+}
+
+static void
+progress (int iter, uint64_t block_cnt)
+{
+  printf ("(%d)\tblocks: %llu\ttimer events: %llu\tuser events: %llu\n",
+          iter, block_cnt, xnd_atomic_load_relaxed (&kevent_timer_cnt),
+          xnd_atomic_load_relaxed (&kevent_user_cnt));
+}
+
 int
 main (int argc, char *argv[])
 {
-  void (^cb) (void);
-  uint64_t total = 0;
+  uint16_t cnt;
+  int iter, niters = 2500;
+  uint64_t block_cnt = 0;
+  struct udata_args args = {0};
   struct pthread_workqueue_config cfg =
     {
       .flags = 0,
@@ -271,6 +385,21 @@ main (int argc, char *argv[])
       .queue_label_offs = 0,
     };
 
+#define shift() *(argc--, argv++)
+  const char *opt = NULL, *val = NULL;
+  shift ();
+  while (argc > 0)
+    {
+      opt = shift ();
+      if (strcmp (opt, "--iterations") == 0)
+        {
+          if ((val = shift ()) != NULL)
+            niters = atoi (val);
+        }
+    }
+#undef shift
+
+  main_thread_siginit ();
   xworkq_setup (&cfg);
   queue_init ();
 
@@ -284,7 +413,7 @@ main (int argc, char *argv[])
     xworkq_set_event_mgr_pri (pp);
   }
 
-  cb = ^(void)
+  args.cb = ^(void)
     {
       float *A, *b, *x;
       size_t m, n;
@@ -316,22 +445,20 @@ main (int argc, char *argv[])
       free (x);
     };
 
+  register_timer_kevent (MSEC_TO_MACH_TIME (50));
   register_user_kevent ();
-  for (int i = 0; i < 5000; i++)
+
+  for (iter = 1; iter <= niters; iter++)
     {
-      uint16_t count = (uint16_t) (arc4random () % 500) + 12;
-      struct udata_args args =
-        {
-          .count = count,
-          .cb = cb,
-        };
+      cnt = (uint16_t) (arc4random () % 500) + 12;
+      args.count = cnt;
 
       trigger_user_kevent ((uint64_t) &args);
-      queue_prod_wait (count);
-      total += count;
+      main_thread_wait ();
+      block_cnt += cnt;
 
-      if ((i % 100) == 0)
-        printf ("(iteration %d) blocks executed = %llu\n", i, total);
+      if ((iter % 100) == 0)
+        progress (iter, block_cnt);
     }
 
   queue_fini ();

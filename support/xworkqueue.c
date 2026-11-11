@@ -9,14 +9,14 @@
 #include "xworkqueue.h"
 #include "common/compiler.h"
 
-#define __xworkq(op, ...)                    \
-  do {                                       \
-    int __err = workq_##op (__VA_ARGS__);    \
-    if (__err != 0)                          \
-      {                                      \
-        workq_error (STRINGIFY (op), __err); \
-        abort ();                            \
-      }                                      \
+#define __xworkq(op, ...)                             \
+  do {                                                \
+    int __err = workq_##op (__VA_ARGS__);             \
+    if (__err != 0)                                   \
+      {                                               \
+        workq_error (STRINGIFY (workq_##op), __err);  \
+        abort ();                                     \
+      }                                               \
   } while (0)
 
 static void

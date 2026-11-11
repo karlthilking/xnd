@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <mach/mach_time.h>
 
 #ifndef MSEC_PER_SEC
 # define MSEC_PER_SEC (1000L)
@@ -112,6 +113,51 @@
      }                                                    \
    while (0)
 #endif /* TIMEVAL_TO_TIMESPEC */
+
+/* Macros for working with Mach time units. These macros are for
+   convenience only and should not be used in serious programs;
+   They waste a syscall in mach_timebase_info on every call. */
+#define MACH_TIME_TO_NSEC(t)                    \
+  ((uint64_t)                                   \
+   ({                                           \
+     struct mach_timebase_info __tb;            \
+     uint64_t __mach = (t);                     \
+     mach_timebase_info (&__tb);                \
+     (__mach * __tb.numer) / __tb.denom;        \
+   }))
+#define NSEC_TO_MACH_TIME(t)                    \
+  ((uint64_t)                                   \
+   ({                                           \
+     struct mach_timebase_info __tb;            \
+     uint64_t __nsec = (t);                     \
+     mach_timebase_info (&__tb);                \
+     (__nsec * __tb.denom) / __tb.numer;        \
+   }))
+
+#define MACH_TIME_TO_USEC(t) (MACH_TIME_TO_NSEC (t) / NSEC_PER_USEC)
+#define USEC_TO_MACH_TIME(t) (NSEC_TO_MACH_TIME ((t) * NSEC_PER_USEC))
+
+#define MACH_TIME_TO_MSEC(t) (MACH_TIME_TO_NSEC (t) / NSEC_PER_MSEC)
+#define MSEC_TO_MACH_TIME(t) (NSEC_TO_MACH_TIME ((t) * NSEC_PER_MSEC))
+
+#define TIMESPEC_TO_MACH_TIME(ts, t)                      \
+  ((void)                                                 \
+   ({                                                     \
+     uint64_t __t;                                        \
+     struct timespec *__ts = (ts);                        \
+     __t = (__ts->tv_sec * NSEC_PER_SEC) + __ts->tv_nsec; \
+     __t = NSEC_TO_MACH_TIME (__t);                       \
+     *(t) = __t;                                          \
+   }))
+#define MACH_TIME_TO_TIMESPEC(t, ts)            \
+  ((void)                                       \
+   ({                                           \
+     uint64_t __t = (t);                        \
+     struct timespec *__ts = (ts);              \
+     __t = MACH_TIME_TO_NSEC (__t);             \
+     __ts->tv_sec = __t / NSEC_PER_SEC;         \
+     __ts->tv_nsec = __t % NSEC_PER_SEC;        \
+   }))
 
 /*
  * Convenience macros for timing certain events; TIMER_PUSH and TIMER_POP
