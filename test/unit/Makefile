@@ -10,7 +10,13 @@ override CFLAGS += \
 	-iquote $(XND_ROOT)/xnd \
 	-iquote $(XND_ROOT)/include
 
-ALL = tst-path tst-xnd-ulock tst-atomic tst-io tst-thread-port
+ALL = \
+	tst-path \
+	tst-xnd-ulock \
+	tst-atomic \
+	tst-io \
+	tst-thread-port \
+	tst-xnd-sem
 
 DIRS = xnd xnd/util xnd/platform xnd/synch
 VPATH = $(addprefix $(XND_ROOT)/,$(DIRS))
@@ -55,6 +61,15 @@ tst-thread-port-FLAGS = $(CFLAGS) -O2 $(ASAN) $(UBSAN)
 	$(CC) $(tst-thread-port-FLAGS) -c $< -o $@
 tst-thread-port: $(tst-thread-port-OBJS)
 	$(CC) $(tst-thread-port-FLAGS) -o $@ $^
+	dsymutil $@
+
+tst-xnd-sem-SRCS = tst-xnd-sem.c xnd-sem.c
+tst-xnd-sem-OBJS = $(tst-xnd-sem-SRCS:.c=.xnd-sem.o)
+tst-xnd-sem-FLAGS = $(CFLAGS) -O2
+%.xnd-sem.o: %.c
+	$(CC) $(tst-xnd-sem-FLAGS) -c $< -o $@
+tst-xnd-sem: $(tst-xnd-sem-OBJS)
+	$(CC) $(tst-xnd-sem-FLAGS) -o $@ $^
 	dsymutil $@
 
 clean:
