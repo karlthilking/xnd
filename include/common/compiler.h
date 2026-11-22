@@ -228,12 +228,15 @@ xnd_warn_unused (const bool x)
   xnd_warn_unused (__builtin_mul_overflow ((x), (y), (res)))
 
 #if __has_attribute(__optimize__)
-# define __optimize(level) __attribute__ ((__optimize__ (level)))
+# define __optimize__(level) __attribute__ ((__optimize__ (level)))
 #else
-# define __optimize(level)
+# define __optimize__(level)
 #endif
 
 #define __nonnull__(x) __attribute__ ((__nonnull__ x))
 #define __attribute_format__(x) __attribute__ ((__format__ x))
+
+#define assert_struct_offset(type, field, offset) \
+  static_assert (offsetof (type, field) == (offset))
 
 #endif /* XND_COMPILER_H */

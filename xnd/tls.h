@@ -1,15 +1,16 @@
 /* tls.h */
 #ifndef XND_TLS_H
 #define XND_TLS_H
+
+#include <pthread.h>
+
 #include "xnd/xnd.h"
 #include "xnd/wrappers/pthread_wrappers.h"
 
 extern void _thread_set_tsd_base (void *);
 
-#define assert_pthread_offset(type, field, name)             \
-  static_assert (offsetof (struct _opaque_##type##_t, field) \
-                     == PTHREAD_##name##_OFFSET,             \
-                 "")
+#define check_pthread_offset(type, field, offset) \
+  assert_struct_offset (struct _opaque_##type, field, offset)
 
 #define __TSD_THREAD_SELF        0
 #define __TSD_ERRNO              1
@@ -42,17 +43,18 @@ extern void _thread_set_tsd_base (void *);
  */
 #define XND_TLV_INIT ((void *) 0x0000000005203090ULL)
 
-#define PTHREAD_TSD_OFFSET             ((intptr_t) 224)
-#define PTHREAD_THREADID_OFFSET        ((intptr_t) 216)
-#define PTHREAD_SIG_OFFSET             ((intptr_t) 0)
-#define PTHREAD_CLEANUP_HANDLER_OFFSET ((intptr_t) 8)
+#define PTHREAD_TSD_OFFSET             	((intptr_t) 224)
+#define PTHREAD_THREADID_OFFSET        	((intptr_t) 216)
+#define PTHREAD_SIG_OFFSET             	((intptr_t) 0)
+#define PTHREAD_CLEANUP_STACK_OFFSET 	((intptr_t) 8)
 
-assert_pthread_offset (pthread, __sig, SIG);
-assert_pthread_offset (pthread, __cleanup_stack, CLEANUP_HANDLER);
+check_pthread_offset (pthread_t, __sig, PTHREAD_SIG_OFFSET);
+check_pthread_offset (pthread_t, __cleanup_stack,
+                      PTHREAD_CLEANUP_STACK_OFFSET);
 
-#define TSD_PTHREAD_OFFSET         ((intptr_t) -224)
-#define TSD_THREADID_OFFSET        ((intptr_t) -8)
-#define TSD_CLEANUP_HANDLER_OFFSET ((intptr_t) -216)
+#define TSD_PTHREAD_OFFSET         	((intptr_t) -224)
+#define TSD_THREADID_OFFSET        	((intptr_t) -8)
+#define TSD_CLEANUP_STACK_OFFSET 	((intptr_t) -216)
 
 #define EXTERNAL_POSIX_THREAD_KEYS_MAX 512
 #define INTERNAL_POSIX_THREAD_KEYS_MAX 256
@@ -76,14 +78,15 @@ pthread_tsd_base (pthread_t p)
   return ((uintptr_t) p + PTHREAD_TSD_OFFSET);
 }
 
-#define tsd_relative_access(type, offset) (type *) (self_tsd_base () + offset)
+#define tsd_relative_access(type, offset) \
+  (type *) (self_tsd_base () + (offset))
 #define tsd_slot_access(type, slot) \
-  (type *) (self_tsd_base () + slot * sizeof (void *))
+  (type *) (self_tsd_base () + (slot) * sizeof (void *))
 
 #define pthread_struct_relative_access(p, type, offset) \
-  (type *) (pthread_tsd_base (p) + offset)
+  (type *) (pthread_tsd_base (p) + (offset))
 #define pthread_struct_slot_access(p, type, slot) \
-  (type *) (pthread_tsd_base (p) + slot * sizeof (void *))
+  (type *) (pthread_tsd_base (p) + (slot) * sizeof (void *))
 
 static inline u64
 self_get_threadid (void)
@@ -101,7 +104,7 @@ static inline struct __darwin_pthread_handler_rec **
 self_cleanup_stack_addr (void)
 {
   struct __darwin_pthread_handler_rec *handler;
-  const uintptr_t offset = TSD_CLEANUP_HANDLER_OFFSET;
+  const uintptr_t offset = TSD_CLEANUP_STACK_OFFSET;
   return tsd_relative_access (typeof (handler), offset);
 }
 
