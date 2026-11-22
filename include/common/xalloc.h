@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "compiler.h"
 
 #define xalloc_panic(msg, errnum)                     \
