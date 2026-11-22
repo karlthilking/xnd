@@ -23,11 +23,6 @@
 #define xnd_atomic_value_cast(p, v) \
   ({ xnd_unqual_typeof (*(p)) __v = (v); __v; })
 
-extern kern_return_t thread_switch (mach_port_t, int, mach_msg_timeout_t);
-
-#define xnd_atomic_yield() \
-  thread_switch (THREAD_NULL, SWITCH_OPTION_NONE, 0)
-
 static_assert(memory_order_relaxed == __ATOMIC_RELAXED, "");
 static_assert(memory_order_acquire == __ATOMIC_ACQUIRE, "");
 static_assert(memory_order_release == __ATOMIC_RELEASE, "");
@@ -156,7 +151,6 @@ static_assert(memory_order_seq_cst == __ATOMIC_SEQ_CST, "");
      do {                                                               \
        __e = xnd_atomic_value_cast (p, e);                              \
        do {                                                             \
-         xnd_atomic_yield ();                                           \
          __v = atomic_load_explicit (__p, memory_order_relaxed);        \
        } while (__v != __e);                                            \
      } while (!atomic_compare_exchange_weak_explicit                    \
