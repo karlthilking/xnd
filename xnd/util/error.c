@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "xnd/util/debug.h"
 #include "xnd/util/error.h"
 
 extern int __pthread_workqueue_setkill (int);
@@ -87,6 +88,10 @@ void
 xnd_abort (void)
 {
   sigset_t mask;
+
+#if DEBUG
+  XND_DEBUG_PAUSE ();
+#endif
 
   /* Mask every signal but SIGABRT in the calling thread only (on
      Darwin, sigprocmask is per-thread like pthread_sigmask). Other
