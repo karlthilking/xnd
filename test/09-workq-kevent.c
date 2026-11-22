@@ -61,6 +61,8 @@ static void handle_timer_kevent (struct kevent_qos_s *);
 static uint16_t handle_user_kevent (const struct kevent_qos_s *);
 static void kevent_thread (void **, int *);
 
+static void kevent_submit_common (const struct kevent_qos_s *, int);
+static void kevent64_submit (const struct kevent_qos_s *, int);
 static void register_timer_kevent (uint64_t);
 static void register_user_kevent (void);
 static void trigger_user_kevent (uint64_t);
@@ -73,6 +75,8 @@ static void progress (int, uint64_t);
 static struct block_queue *queue = NULL;
 static uint64_t kevent_timer_cnt = 0;
 static uint64_t kevent_user_cnt = 0;
+static bool kevent_submit_direct = false;
+static void *kevent_function = (void *) &kevent_qos;
 
 static float
 rand_float(float lo, float hi)
@@ -268,6 +272,49 @@ kevent_thread (void **events, int *nevents)
     }
 
   *nevents = (int) (out - kevents);
+  if (kevent_submit_direct)
+    {
+      kevent_submit_common (kevents, *nevents);
+      *nevents = 0;
+    }
+}
+
+static void
+kevent_submit_common (const struct kevent_qos_s *events, int nevents)
+{
+  kevent_function == kevent_qos
+    ? xworkq_kevent_submit (events, nevents)
+    : kevent64_submit (events, nevents);
+}
+
+static void
+kevent64_submit (const struct kevent_qos_s *events_qos, int nevents)
+{
+  int ret;
+  struct kevent64_s *events64, *dst;
+  const struct kevent_qos_s *src;
+
+  events64 = xmalloc (nevents * sizeof (*events64));
+  for (int i = 0; i < nevents; i++)
+    {
+      src = events_qos + i;
+      dst = events64 + i;
+      EV_SET64 (dst, src->ident, src->filter, src->flags, src->fflags,
+                src->data, src->udata, src->ext[0], src->ext[1]);
+    }
+
+ retry:
+  ret = kevent64 (-1, events64, nevents, NULL, 0, KEVENT_FLAG_WORKQ |
+                  KEVENT_FLAG_IMMEDIATE, NULL);
+  if (ret < 0 && errno == EINTR)
+    goto retry;
+  else if (ret < 0)
+    {
+      perror ("kevent64");
+      abort ();
+    }
+
+  free (events64);
 }
 
 static void
@@ -283,7 +330,7 @@ register_timer_kevent (uint64_t delay)
       .fflags = NOTE_ABSOLUTE | NOTE_MACHTIME,
       .data = (int64_t) (mach_absolute_time () + delay),
     };
-  xworkq_kevent_submit (&kev, 1);
+  kevent_submit_common (&kev, 1);
 }
 
 static void
@@ -296,7 +343,7 @@ register_user_kevent (void)
       .flags = EV_ADD | EV_CLEAR,
       .qos = _PTHREAD_PRIORITY_EVENT_MANAGER_FLAG,
     };
-  xworkq_kevent_submit (&kev, 1);
+  kevent_submit_common (&kev, 1);
 }
 
 static void
@@ -311,7 +358,7 @@ trigger_user_kevent (uint64_t udata)
       .data = 0,
       .udata = udata,
     };
-  xworkq_kevent_submit (&kev, 1);
+  kevent_submit_common (&kev, 1);
 }
 
 static void
@@ -373,6 +420,7 @@ main (int argc, char *argv[])
   uint16_t cnt;
   int iter, niters = 2500;
   uint64_t block_cnt = 0;
+  const char *program = NULL;
   struct udata_args args = {0};
   struct pthread_workqueue_config cfg =
     {
@@ -387,7 +435,10 @@ main (int argc, char *argv[])
 
 #define shift() *(argc--, argv++)
   const char *opt = NULL, *val = NULL;
-  shift ();
+
+  program = shift ();
+  program = __builtin_strrchr (program, '/') != NULL
+    ? __builtin_strrchr (program, '/') + 1 : program;
   while (argc > 0)
     {
       opt = shift ();
@@ -396,8 +447,28 @@ main (int argc, char *argv[])
           if ((val = shift ()) != NULL)
             niters = atoi (val);
         }
+      else if (strcmp (opt, "--kevent-direct") == 0)
+        kevent_submit_direct = true;
+      else if (strcmp (opt, "--kevent-function") == 0)
+        {
+          if ((val = shift()) != NULL)
+            {
+              if (strcmp (val, "kevent_qos") == 0)
+                kevent_function = kevent_qos;
+              else if (strcmp (val, "kevent64") == 0)
+                kevent_function = kevent64;
+              else
+                fprintf (stderr, "Invalid kevent function: %s\n", val);
+            }
+        }
+      else
+        fprintf (stderr, "Unrecognized argument: %s\n", opt);
     }
 #undef shift
+
+  printf ("%s: iterations = %d, kevent direct: %s, kevent function: %s\n",
+          program, niters, kevent_submit_direct ? "true" : "false",
+          kevent_function == kevent_qos ? "kevent_qos" : "kevent64");
 
   main_thread_siginit ();
   xworkq_setup (&cfg);
