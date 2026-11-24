@@ -122,7 +122,7 @@ def verify(
     config.prepare_test(test_id)
     argv = config.get_test_argv(test_id)
 
-    print(f"Launch {name} (interval: {ckpt_interval}s)")
+    print(f"Launching {name} (checkpoint interval: {ckpt_interval}s)")
 
     master_fd, slave_fd = pty.openpty()
     proc = subprocess.Popen(
@@ -232,14 +232,13 @@ if __name__ == "__main__":
         print(f"Unknown test id(s): {', '.join(unknown)}")
         sys.exit(-1)
 
-    xnd = config.get_xnd_executables()
-    missing = [n for n in config.XND_EXECUTABLES if n not in xnd]
-    if missing:
-        print(f"Failed to find: {', '.join(missing)}")
-        sys.exit(-1)
+    xnd = {}
+    for x in config.XND_EXECUTABLES:
+      xnd[x] = "../" + x
 
-    print(f"Running regression tests for {len(test_ids)} program(s), "
-          f"{iterations} checkpoint/restart cycle(s) each:")
+    print (f"Running {len (test_ids)} regression tests")
+    print (f"Checkpoint/restart cycles: {iterations}\n")
+
     results = {}
     for test_id in test_ids:
         results[test_id] = verify(test_id, ckpt_interval, iterations, xnd)

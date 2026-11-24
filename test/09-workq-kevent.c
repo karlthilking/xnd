@@ -18,6 +18,9 @@
 #include "common/xunistd.h"
 #include "support/xworkqueue.h"
 #include "thread-priority-defs.h"
+#include "xnd/synch/xnd-sem.h"
+
+#define TEST "09-workq-kevent"
 
 extern pthread_t pthread_main_thread_np (void);
 
@@ -36,8 +39,8 @@ struct block
 struct block_queue
 {
   pthread_mutex_t lock;
-  dispatch_semaphore_t sem_prod;
-  dispatch_semaphore_t sem_cons;
+  struct xnd_sem sem_prod;
+  struct xnd_sem sem_cons;
   TAILQ_HEAD (block_head, block) head;
 };
 
@@ -71,6 +74,9 @@ static void main_thread_signal (void);
 static void main_thread_wait (void);
 static void main_thread_siginit (void);
 static void progress (int, uint64_t);
+
+static void *signal_thread (void *);
+static void signal_thread_create (void);
 
 static struct block_queue *queue = NULL;
 static uint64_t kevent_timer_cnt = 0;
@@ -108,8 +114,8 @@ queue_init (void)
   queue = xmalloc (sizeof (*queue));
   TAILQ_INIT (&queue->head);
 
-  queue->sem_prod = dispatch_semaphore_create (0);
-  queue->sem_cons = dispatch_semaphore_create (0);
+  xnd_sem_init (&queue->sem_prod, 0);
+  xnd_sem_init (&queue->sem_cons, 0);
 
   xpthread_mutex_init (&queue->lock, NULL);
 }
@@ -129,27 +135,27 @@ queue_fini (void)
 static void
 queue_cons_post (void)
 {
-  dispatch_semaphore_signal (queue->sem_prod);
+  xnd_sem_post (&queue->sem_prod);
 }
 
 static void
 queue_cons_wait (void)
 {
-  dispatch_semaphore_wait (queue->sem_cons, DISPATCH_TIME_FOREVER);
+  xnd_sem_wait (&queue->sem_cons);
 }
 
 static void
 queue_prod_post (uint16_t count)
 {
   for (uint16_t i = 0; i < count; i++)
-    dispatch_semaphore_signal (queue->sem_cons);
+    xnd_sem_post (&queue->sem_cons);
 }
 
 static void
 queue_prod_wait (uint16_t count)
 {
   for (uint16_t i = 0; i < count; i++)
-    dispatch_semaphore_wait (queue->sem_prod, DISPATCH_TIME_FOREVER);
+    xnd_sem_wait (&queue->sem_prod);
 }
 
 static struct block *
@@ -414,13 +420,53 @@ progress (int iter, uint64_t block_cnt)
           xnd_atomic_load_relaxed (&kevent_user_cnt));
 }
 
+static void *
+signal_thread (__unused void *arg)
+{
+  int ret, sig;
+  sigset_t fullset, emptyset;
+  pthread_t self = pthread_self ();
+
+  sigemptyset (&emptyset);
+  sigfillset (&fullset);
+
+  xpthread_sigmask (SIG_SETMASK, &fullset, NULL);
+
+  /* The main thread mostly blocks in sigwait waiting on SIGUSR1, and
+     workqueue threads won't receive signals. Let this thread spin in
+     sigwait to handle termination signals. */
+  for (;;)
+    {
+      ret = sigwait (&fullset, &sig);
+      if (ret == 0)
+        {
+          xpthread_sigmask (SIG_SETMASK, &emptyset, NULL);
+          pthread_kill (self, sig);
+          xpthread_sigmask (SIG_SETMASK, &fullset, NULL);
+        }
+    }
+
+  pthread_exit (NULL);
+}
+
+static void
+signal_thread_create (void)
+{
+  pthread_t thread;
+  pthread_attr_t attr;
+
+  xpthread_attr_init (&attr);
+  xpthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+
+  xpthread_create (&thread, &attr, signal_thread, NULL);
+}
+
 int
 main (int argc, char *argv[])
 {
   uint16_t cnt;
   int iter, niters = 2500;
   uint64_t block_cnt = 0;
-  const char *program = NULL;
   struct udata_args args = {0};
   struct pthread_workqueue_config cfg =
     {
@@ -436,9 +482,7 @@ main (int argc, char *argv[])
 #define shift() *(argc--, argv++)
   const char *opt = NULL, *val = NULL;
 
-  program = shift ();
-  program = __builtin_strrchr (program, '/') != NULL
-    ? __builtin_strrchr (program, '/') + 1 : program;
+  shift ();
   while (argc > 0)
     {
       opt = shift ();
@@ -466,9 +510,13 @@ main (int argc, char *argv[])
     }
 #undef shift
 
-  printf ("%s: iterations = %d, kevent direct: %s, kevent function: %s\n",
-          program, niters, kevent_submit_direct ? "true" : "false",
+  printf ("(%s) iterations: %d, kevent direct: %s, kevent function: %s\n",
+          TEST, niters, kevent_submit_direct ? "true" : "false",
           kevent_function == kevent_qos ? "kevent_qos" : "kevent64");
+
+  /* Create signal thread to handle job control signals, termination
+     signals, etc. */
+  signal_thread_create ();
 
   main_thread_siginit ();
   xworkq_setup (&cfg);

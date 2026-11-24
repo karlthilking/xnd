@@ -89,6 +89,30 @@ CONFIG = {
         "input": None,
         "args": [],
     },
+    "dispatch-apply" : {
+      "name" : "dispatch-apply",
+      "path" : str (BIN / "08-dispatch-apply"),
+      "input" : None,
+      "args" : [],
+    },
+    "workq-kevent-qos" : {
+      "name" : "workq-kevent-qos",
+      "path" : str (BIN / "09-workq-kevent"),
+      "input" : None,
+      "args" : [
+        "--kevent-function", "kevent_qos",
+        "--iterations", "5000",
+      ],
+    },
+    "workq-kevent64" : {
+      "name" : "workq-kevent64",
+      "path" : str (BIN / "09-workq-kevent"),
+      "input" : None,
+      "args" : [
+        "--kevent-function", "kevent64",
+        "--iterations", "5000",
+      ],
+    },
 }
 
 def display():
@@ -118,49 +142,3 @@ def cleanup_test(test_id: str):
 def get_test_argv(test_id: str) -> List[str]:
     cfg = CONFIG[test_id]
     return [cfg["path"]] + cfg["args"]
-
-def is_xnd_root(xnd_dir: str) -> bool:
-    for entry in Path(xnd_dir).iterdir():
-        if entry.is_dir() and ".git" == entry.name:
-            return True
-    return False
-
-def get_xnd_root() -> Optional[str]:
-    search = [".", ".."] + os.getenv("PATH", "").split(":")
-    idx = 0
-    while idx < len(search):
-        s = search[idx]
-        idx += 1
-        if not s:
-            continue
-        d = Path(s)
-        if d.name == "xnd" and is_xnd_root(s):
-            return s
-        try:
-            for entry in d.iterdir():
-                if entry.is_dir() and "xnd" in str(entry):
-                    if is_xnd_root(str(entry)):
-                        return str(entry)
-                    search.append(str(entry))
-        except:
-            continue
-    return None
-
-def get_xnd_executables() -> Dict[str, str]:
-    found: Dict[str, str] = {}
-    search = [".", ".."] + os.getenv("PATH", "").split(":")
-    idx = 0
-    xnd_root = get_xnd_root()
-    if xnd_root is None:
-        return {}
-
-    paths = [str(xnd_root + "/" + name) for name in XND_EXECUTABLES]
-    if not all(os.path.exists(p) for p in paths):
-        os.system(f"cd {xnd_root} && make --quiet -j8")
-
-    for name in XND_EXECUTABLES:
-        path = xnd_root + "/" + name
-        if os.path.exists(path):
-            found[name] = path
-
-    return found
