@@ -30,10 +30,10 @@ TESTS := \
 	04_jacobi \
 	06-swift-await \
 	07-swift-task-sleep \
-	08-dispatch \
+	08-dispatch-apply \
 	09-workq-kevent
 
-DIRS = xnd support include test
+DIRS = xnd xnd/synch support include test
 VPATH = $(addprefix $(XND-ROOT)/,$(DIRS))
 
 ALL = $(addprefix $(BUILD)/,$(TESTS))
@@ -46,7 +46,7 @@ objs-prefix = $(addprefix $(BUILD)/,$(1))
 objs-suffix = $(addsuffix .$(1).o,$(basename $($(1)-SRCS)))
 srcs-to-objs = $(call objs-prefix,$(call objs-suffix,$(1)))
 
-workq-kevent-SRCS = 09-workq-kevent.c xworkqueue.c workqueue.c
+workq-kevent-SRCS = 09-workq-kevent.c xworkqueue.c workqueue.c xnd-sem.c
 workq-kevent-OBJS = $(call srcs-to-objs,workq-kevent)
 $(BUILD)/%.workq-kevent.o: %.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@ 
