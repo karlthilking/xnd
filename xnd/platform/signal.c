@@ -5,6 +5,7 @@
 
 #include "xnd/xnd.h"
 #include "xnd/pac.h"
+#include "xnd/thread_info.h"
 #include "xnd/platform/signal.h"
 
 extern int __sigwait (const sigset_t *, int *);
@@ -43,6 +44,13 @@ static void
 xnd_sigtramp (union __sigaction_u __sigaction_u, int sigstyle, int sig,
               siginfo_t *sinfo, ucontext_t *uctx, uintptr_t token)
 {
+  struct thread_info *self = thread_self ();
+
+  /* Increment signal catch count for all handlers other than libxnd's
+     checkpoint signal handler. */
+  if (self != NULL && sa_sigaction != thread_sighandler)
+    self->ti_sigcnt++;
+
   sa_sigaction (sig, sinfo, uctx);
   xnd_sigreturn (uctx, UC_FLAVOR, token);
   unreachable ();

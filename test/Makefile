@@ -31,7 +31,8 @@ TESTS := \
 	06-swift-await \
 	07-swift-task-sleep \
 	08-dispatch-apply \
-	09-workq-kevent
+	09-workq-kevent \
+	10-sigsuspend
 
 DIRS = xnd xnd/synch support include test
 VPATH = $(addprefix $(XND-ROOT)/,$(DIRS))

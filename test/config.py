@@ -113,6 +113,12 @@ CONFIG = {
         "--iterations", "5000",
       ],
     },
+    "sigsuspend" : {
+      "name" : "sigsuspend",
+      "path" : str (BIN / "10-sigsuspend"),
+      "input" : None,
+      "args" : ["7500000"],
+    },
 }
 
 def display():
