@@ -300,8 +300,8 @@ INTERPOSE (sigwait_hook, sigwait);
    with the checkpoint signal being received.
 
    However, sigsuspend_hook should be sure that the checkpoint signal
-   is not is the sigsuspend mask, and not return to the user until a
-   signal other than the checkpoint signal is received. */
+   is not in the sigsuspend mask, and should not return to the user until
+   a signal other than the checkpoint signal is received. */
 static int
 sigsuspend_hook (const sigset_t *umask)
 {
@@ -332,8 +332,10 @@ sigsuspend_hook (const sigset_t *umask)
       xnd_assert (ret == -1 && errno == EINTR);
 
       /* If signal catch count increased, then a signal other than the
-         checkpoint signal was caught. */
-      if (READ_ONCE (self->ti_sigcnt) > sigcnt)
+         checkpoint signal was caught. Checking that self->ti_sigcnt is
+         not equal to sigcnt rather than strictly greater than sigcnt
+         allows self->ti_sigcnt to overflow with breaking sigsuspend_hook. */
+      if (READ_ONCE (self->ti_sigcnt) != sigcnt)
         break;
     }
 

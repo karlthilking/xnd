@@ -67,10 +67,15 @@ struct thread_info
   /* Saved user context */
   ucontext_t ti_uctx;
 
-  /* Thread signal state */
+  /* Thread signal state
+   ti_sigstk:  alternate signal stack information
+   ti_sigmask: signal mask
+   ti_siglist: pending signal set
+   ti_sigcnt:  count of signals caught (excludes checkpoint signal) */
   stack_t ti_sigstk;
-  sigset_t ti_sigmask; /* Masked signals */
-  sigset_t ti_siglist; /* Pending signals */
+  sigset_t ti_sigmask;
+  sigset_t ti_siglist;
+  uint32_t ti_sigcnt;
 
   /* TLS related or TSD-relative fields */
   uintptr_t ti_tsdbase;
