@@ -390,13 +390,19 @@ main_thread_wait (void)
   int ret, sig;
   const sigset_t mask = sigmask (SIGUSR1);
 
-  ret = sigwait (&mask, &sig);
+  /* __sigwait can be interrupted before blocking, but libpthread
+     translates sigwait EINTR to 0. However, sig is not set by the
+     kernel if the thread is interrupted, so continue as long as
+     sig != SIGUSR1. */
+  do
+    ret = sigwait (&mask, &sig);
+  while (ret == 0 && sig != SIGUSR1);
+
   if (ret != 0)
     {
       perror ("sigwait");
       abort ();
     }
-  assert (sig == SIGUSR1);
 }
 
 static void
@@ -581,5 +587,7 @@ main (int argc, char *argv[])
     }
 
   queue_fini ();
-  exit (0);
+
+  /* workqueue kqueue was corrupted if kevent_user_cnt != niters */
+  exit (kevent_user_cnt != niters ? 1 : 0);
 }
